@@ -20,14 +20,23 @@ type DB struct {
 }
 
 type Redis struct {
-	Host string `toml:"host"`
-	Port int    `toml:"port"`
+	Host     string `toml:"host"`
+	Port     int    `toml:"port"`
+	Password string `toml:"password"`
+	DB       int    `toml:"db"`
+}
+
+type JWT struct {
+	Secret           string `toml:"secret"`
+	AccessTTLMinutes int    `toml:"access_ttl_minutes"`
+	RefreshTTLDays   int    `toml:"refresh_ttl_days"`
 }
 
 type Config struct {
 	Server `toml:"server"`
 	DB     `toml:"database"`
 	Redis  `toml:"redis"`
+	JWT    `toml:"jwt"`
 }
 
 var CFG Config
