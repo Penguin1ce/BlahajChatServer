@@ -1,88 +1,93 @@
 package handler
 
 import (
+	"BlahajChatServer/internal/dao"
+	"BlahajChatServer/internal/dto/requests"
+	"BlahajChatServer/internal/dto/response"
+	"BlahajChatServer/internal/middleware"
+	"BlahajChatServer/internal/model"
+	"BlahajChatServer/internal/service"
 	"errors"
 	"net/http"
 	"time"
 
-	"BlahajChatServer/internal/dao"
-	"BlahajChatServer/internal/middleware"
-	"BlahajChatServer/internal/service"
-
 	"github.com/gin-gonic/gin"
 )
 
-type registerReq struct {
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required,min=6,max=64"`
-	Nickname string `json:"nickname" binding:"max=32"`
+func toUserResp(u *model.User) response.UserResp {
+	return response.UserResp{
+		ID:        u.ID,
+		Email:     u.Email,
+		Nickname:  u.Nickname,
+		AvatarURL: u.AvatarURL,
+		CreatedAt: u.CreatedAt,
+		UpdatedAt: u.UpdatedAt,
+	}
 }
 
-type loginReq struct {
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required"`
-}
-
-type refreshReq struct {
-	RefreshToken string `json:"refresh_token" binding:"required"`
-}
-
-type logoutReq struct {
-	RefreshToken string `json:"refresh_token"`
+func toTokenPairResp(tp *service.TokenPair) response.TokenPairResp {
+	return response.TokenPairResp{
+		AccessToken:  tp.AccessToken,
+		RefreshToken: tp.RefreshToken,
+		ExpiresIn:    tp.ExpiresIn,
+	}
 }
 
 func Register(c *gin.Context) {
-	var req registerReq
+	var req requests.RegisterReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		response.Err(c, http.StatusBadRequest, err)
 		return
 	}
 	u, err := service.Register(c.Request.Context(), req.Email, req.Password, req.Nickname)
 	if err != nil {
 		if errors.Is(err, service.ErrEmailTaken) {
-			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+			response.Err(c, http.StatusConflict, err)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		response.Err(c, http.StatusInternalServerError, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"user": u})
+	response.OK(c, response.RegisterResp{User: toUserResp(u)})
 }
 
 func Login(c *gin.Context) {
-	var req loginReq
+	var req requests.LoginReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		response.Err(c, http.StatusBadRequest, err)
 		return
 	}
 	u, tp, err := service.Login(c.Request.Context(), req.Email, req.Password)
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidCredentials) {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+			response.Err(c, http.StatusUnauthorized, err)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		response.Err(c, http.StatusInternalServerError, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"user": u, "token": tp})
+	response.OK(c, response.LoginResp{
+		User:  toUserResp(u),
+		Token: toTokenPairResp(tp),
+	})
 }
 
 func Refresh(c *gin.Context) {
-	var req refreshReq
+	var req requests.RefreshReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		response.Err(c, http.StatusBadRequest, err)
 		return
 	}
 	tp, err := service.Refresh(c.Request.Context(), req.RefreshToken)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		response.Err(c, http.StatusUnauthorized, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"token": tp})
+	response.OK(c, response.RefreshResp{Token: toTokenPairResp(tp)})
 }
 
 func Logout(c *gin.Context) {
-	var req logoutReq
+	var req requests.LogoutReq
 	_ = c.ShouldBindJSON(&req)
 
 	jti, _ := c.Get(middleware.CtxJTI)
@@ -91,7 +96,7 @@ func Logout(c *gin.Context) {
 	expT, _ := exp.(time.Time)
 
 	_ = service.Logout(c.Request.Context(), req.RefreshToken, jtiStr, expT)
-	c.JSON(http.StatusOK, gin.H{"ok": true})
+	response.OK(c, response.LogoutResp{OK: true})
 }
 
 func Me(c *gin.Context) {
@@ -99,8 +104,8 @@ func Me(c *gin.Context) {
 	id, _ := uid.(uint64)
 	u, err := dao.GetUserByID(id)
 	if err != nil || u == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "用户不存在"})
+		response.ErrMsg(c, http.StatusNotFound, "用户不存在")
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"user": u})
+	response.OK(c, response.MeResp{User: toUserResp(u)})
 }

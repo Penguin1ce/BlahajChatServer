@@ -34,8 +34,8 @@ func randomToken(n int) string {
 	return hex.EncodeToString(b)
 }
 
-func refreshKey(token string) string  { return "refresh:" + token }
-func blacklistKey(jti string) string  { return "blacklist:" + jti }
+func refreshKey(token string) string { return "refresh:" + token }
+func blacklistKey(jti string) string { return "blacklist:" + jti }
 
 func Register(ctx context.Context, email, password, nickname string) (*model.User, error) {
 	exist, err := dao.GetUserByEmail(email)
