@@ -1,17 +1,12 @@
 package middleware
 
 import (
+	"BlahajChatServer/pkg/consts"
 	"strings"
 
 	"BlahajChatServer/internal/service"
 
 	"github.com/gin-gonic/gin"
-)
-
-const (
-	CtxUserID = "userID"
-	CtxJTI    = "jti"
-	CtxExp    = "exp"
 )
 
 // JWTAuth 从 Authorization: Bearer <token> 或 ?token= 提取并校验
@@ -31,10 +26,10 @@ func JWTAuth() gin.HandlerFunc {
 			c.AbortWithStatusJSON(401, gin.H{"error": "token 已失效"})
 			return
 		}
-		c.Set(CtxUserID, claims.UserID)
-		c.Set(CtxJTI, claims.ID)
+		c.Set(consts.CtxUserID, claims.UserID)
+		c.Set(consts.CtxJTI, claims.ID)
 		if claims.ExpiresAt != nil {
-			c.Set(CtxExp, claims.ExpiresAt.Time)
+			c.Set(consts.CtxExp, claims.ExpiresAt.Time)
 		}
 		c.Next()
 	}

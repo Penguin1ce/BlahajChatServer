@@ -23,6 +23,11 @@ func Init() {
 		c.JSON(200, gin.H{"message": "pong"})
 	})
 
+	ws := GE.Group("/ws")
+	{
+		ws.POST("/login", handler.WebsocketLogin)
+	}
+
 	auth := GE.Group("/auth")
 	{
 		auth.POST("/register", handler.Register)
