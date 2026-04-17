@@ -61,21 +61,38 @@ func SetValueByKeyExpire(key string, value string, expire time.Duration) error {
 	return nil
 }
 
-func DelValueByKey(key string) error {
-	if err := RDB.Del(ctx, key).Err(); err != nil {
-		zlog.Error("Redis 删除失败", "key", key, "err", err)
-		return err
-	}
-	return nil
-}
-
-func ExistsKey(key string) (bool, error) {
-	n, err := RDB.Exists(ctx, key).Result()
+// SetNXValueByKeyExpire 原子 SET ... NX EX ttl：仅当 key 不存在时写入并设置过期时间。
+// 返回 ok=true 表示写入成功；ok=false 表示 key 已存在（常用于限流 / 幂等场景）。
+func SetNXValueByKeyExpire(key string, value string, expire time.Duration) (bool, error) {
+	_, err := RDB.SetArgs(ctx, key, value, redis.SetArgs{
+		Mode: "NX",
+		TTL:  expire,
+	}).Result()
 	if err != nil {
-		zlog.Error("Redis Exists 失败", "key", key, "err", err)
+		// key 已存在时 redis 返回 nil，对应 go-redis 的 redis.Nil
+		if errors.Is(err, redis.Nil) {
+			return false, nil
+		}
+		zlog.Error("Redis SetArgs NX 失败", "key", key, "ttl", expire, "err", err)
 		return false, err
 	}
-	return n > 0, nil
+	return true, nil
+}
+
+func DelValueByKey(key string) {
+	if err := RDB.Del(ctx, key).Err(); err != nil {
+		zlog.Error("Redis 删除失败", "key", key, "err", err)
+	}
+}
+
+func ExistsKey(key string) bool {
+	n, err := RDB.Exists(ctx, key).Result()
+	// 先不管系统错误
+	if err != nil {
+		zlog.Error("Redis Exists 失败", "key", key, "err", err)
+		return false
+	}
+	return n > 0
 }
 
 func ExpireKey(key string, expire time.Duration) error {

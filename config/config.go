@@ -36,7 +36,7 @@ type MailConfig struct {
 	Key        string `toml:"key"`
 	SMTPHost   string `toml:"smtp_host"`
 	ServerMail string `toml:"server_mail"`
-	ServerPort int    `toml:"server_port"`
+	SMTPPort   int    `toml:"smtp_port"`
 }
 
 type TestValues struct {

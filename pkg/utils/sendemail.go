@@ -13,9 +13,8 @@ func SentMail(email string, message string) error {
 	m.SetHeader("From", config.GetConfig().MailConfig.ServerMail)
 	m.SetHeader("To", email)
 	m.SetHeader("Subject", "测试邮件")
-	body := message
-	m.SetBody("text/html", "<h1>Hello!</h1><p>这是 "+body+" 邮件</p>")
-	d := gomail.NewDialer(cfg.SMTPHost, cfg.ServerPort, cfg.ServerMail, cfg.Key)
+	m.SetBody("text/html", "<h1>验证码!</h1><p>这是你的验证码 "+message+" 邮件</p><p>有效期1分钟</p>")
+	d := gomail.NewDialer(cfg.SMTPHost, cfg.SMTPPort, cfg.ServerMail, cfg.Key)
 	d.SSL = true
 	if err := d.DialAndSend(m); err != nil {
 		log.Println(err)

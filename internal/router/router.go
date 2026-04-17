@@ -30,6 +30,7 @@ func Init() {
 
 	auth := GE.Group("/auth")
 	{
+		auth.POST("/getcode", handler.GetEmailCode)
 		auth.POST("/register", handler.Register)
 		auth.POST("/login", handler.Login)
 		auth.POST("/refresh", handler.Refresh)

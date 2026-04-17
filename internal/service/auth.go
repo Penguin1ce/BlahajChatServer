@@ -1,10 +1,11 @@
 package service
 
 import (
+	redis2 "BlahajChatServer/internal/redis"
+	"BlahajChatServer/pkg/errs"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"errors"
 	"strconv"
 	"time"
 
@@ -14,12 +15,6 @@ import (
 
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
-)
-
-var (
-	ErrEmailTaken         = errors.New("邮箱已被注册")
-	ErrInvalidCredentials = errors.New("邮箱或密码错误")
-	ErrInvalidRefresh     = errors.New("refresh token 无效或已过期")
 )
 
 type TokenPair struct {
@@ -43,7 +38,7 @@ func Register(ctx context.Context, email, password, nickname string) (*model.Use
 		return nil, err
 	}
 	if exist != nil {
-		return nil, ErrEmailTaken
+		return nil, errs.ErrEmailTaken
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
@@ -62,10 +57,10 @@ func Login(ctx context.Context, email, password string) (*model.User, *TokenPair
 		return nil, nil, err
 	}
 	if u == nil {
-		return nil, nil, ErrInvalidCredentials
+		return nil, nil, errs.ErrInvalidCredentials
 	}
 	if err := bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password)); err != nil {
-		return nil, nil, ErrInvalidCredentials
+		return nil, nil, errs.ErrInvalidCredentials
 	}
 	tp, err := issueTokenPair(ctx, u.ID)
 	if err != nil {
@@ -75,29 +70,29 @@ func Login(ctx context.Context, email, password string) (*model.User, *TokenPair
 }
 
 func Refresh(ctx context.Context, refreshToken string) (*TokenPair, error) {
-	uidStr, err := dao.RDB.Get(ctx, refreshKey(refreshToken)).Result()
+	uidStr, err := redis2.RDB.Get(ctx, refreshKey(refreshToken)).Result()
 	if err == redis.Nil {
-		return nil, ErrInvalidRefresh
+		return nil, errs.ErrInvalidRefresh
 	} else if err != nil {
 		return nil, err
 	}
 	uid, err := strconv.ParseUint(uidStr, 10, 64)
 	if err != nil {
-		return nil, ErrInvalidRefresh
+		return nil, errs.ErrInvalidRefresh
 	}
 	// 轮换：删旧发新
-	dao.RDB.Del(ctx, refreshKey(refreshToken))
+	redis2.RDB.Del(ctx, refreshKey(refreshToken))
 	return issueTokenPair(ctx, uid)
 }
 
 func Logout(ctx context.Context, refreshToken, accessJTI string, accessExp time.Time) error {
 	if refreshToken != "" {
-		dao.RDB.Del(ctx, refreshKey(refreshToken))
+		redis2.RDB.Del(ctx, refreshKey(refreshToken))
 	}
 	if accessJTI != "" {
 		ttl := time.Until(accessExp)
 		if ttl > 0 {
-			dao.RDB.Set(ctx, blacklistKey(accessJTI), 1, ttl)
+			redis2.RDB.Set(ctx, blacklistKey(accessJTI), 1, ttl)
 		}
 	}
 	return nil
@@ -107,7 +102,7 @@ func IsAccessBlacklisted(ctx context.Context, jti string) bool {
 	if jti == "" {
 		return false
 	}
-	n, _ := dao.RDB.Exists(ctx, blacklistKey(jti)).Result()
+	n, _ := redis2.RDB.Exists(ctx, blacklistKey(jti)).Result()
 	return n > 0
 }
 
@@ -117,13 +112,13 @@ func issueTokenPair(ctx context.Context, userID uint64) (*TokenPair, error) {
 		return nil, err
 	}
 	refresh := randomToken(32)
-	ttl := time.Duration(config.CFG.JWT.RefreshTTLDays) * 24 * time.Hour
-	if err := dao.RDB.Set(ctx, refreshKey(refresh), userID, ttl).Err(); err != nil {
+	ttl := time.Duration(config.GetConfig().JWT.RefreshTTLDays) * 24 * time.Hour
+	if err := redis2.RDB.Set(ctx, refreshKey(refresh), userID, ttl).Err(); err != nil {
 		return nil, err
 	}
 	return &TokenPair{
 		AccessToken:  access,
 		RefreshToken: refresh,
-		ExpiresIn:    int64(config.CFG.JWT.AccessTTLMinutes) * 60,
+		ExpiresIn:    int64(config.GetConfig().JWT.AccessTTLMinutes) * 60,
 	}, nil
 }
