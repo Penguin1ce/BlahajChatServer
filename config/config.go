@@ -32,18 +32,35 @@ type JWT struct {
 	RefreshTTLDays   int    `toml:"refresh_ttl_days"`
 }
 
-type Config struct {
-	Server `toml:"server"`
-	DB     `toml:"database"`
-	Redis  `toml:"redis"`
-	JWT    `toml:"jwt"`
+type MailConfig struct {
+	Key        string `toml:"key"`
+	SMTPHost   string `toml:"smtp_host"`
+	ServerMail string `toml:"server_mail"`
+	ServerPort int    `toml:"server_port"`
 }
 
-var CFG Config
+type TestValues struct {
+	TestMail string `toml:"test_mail"`
+}
+
+type Config struct {
+	Server     `toml:"server"`
+	DB         `toml:"database"`
+	Redis      `toml:"redis"`
+	JWT        `toml:"jwt"`
+	MailConfig `toml:"mail"`
+	TestValues `toml:"test_values"`
+}
+
+var cfg Config
 
 func InitConfig() {
-	_, err := toml.DecodeFile("./config/config.toml", &CFG)
+	_, err := toml.DecodeFile("/Users/firefly/Developer/code/go/BlahajChatServer/config/config.toml", &cfg)
 	if err != nil {
 		log.Fatal("初始化环境失败 ", err)
 	}
+}
+
+func GetConfig() Config {
+	return cfg
 }
