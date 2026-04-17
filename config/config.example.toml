@@ -19,3 +19,11 @@ db       = 0
 secret              = "change-me-to-a-long-random-string"
 access_ttl_minutes  = 15
 refresh_ttl_days    = 30
+
+[log]
+# level: debug / info / warn / error / fatal
+level  = "info"
+# format: console (彩色，开发用) / json (生产用)
+format = "console"
+# file: 留空则只输出到 stdout，否则同时写入该文件 (JSON 格式)
+file   = ""

@@ -43,6 +43,12 @@ type TestValues struct {
 	TestMail string `toml:"test_mail"`
 }
 
+type Log struct {
+	Level  string `toml:"level"`
+	Format string `toml:"format"`
+	File   string `toml:"file"`
+}
+
 type Config struct {
 	Server     `toml:"server"`
 	DB         `toml:"database"`
@@ -50,17 +56,18 @@ type Config struct {
 	JWT        `toml:"jwt"`
 	MailConfig `toml:"mail"`
 	TestValues `toml:"test_values"`
+	Log        `toml:"log"`
 }
 
-var cfg Config
+var CFG Config
 
 func InitConfig() {
-	_, err := toml.DecodeFile("/Users/firefly/Developer/code/go/BlahajChatServer/config/config.toml", &cfg)
+	_, err := toml.DecodeFile("/Users/firefly/Developer/code/go/BlahajChatServer/config/config.toml", &CFG)
 	if err != nil {
 		log.Fatal("初始化环境失败 ", err)
 	}
 }
 
 func GetConfig() Config {
-	return cfg
+	return CFG
 }

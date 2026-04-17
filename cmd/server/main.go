@@ -1,21 +1,26 @@
 package main
 
 import (
-	"fmt"
 	"strconv"
 
 	"BlahajChatServer/config"
 	"BlahajChatServer/internal/dao"
+	"BlahajChatServer/internal/redis"
 	"BlahajChatServer/internal/router"
+	"BlahajChatServer/internal/zlog"
 )
 
 func main() {
 	config.InitConfig()
-	fmt.Println("Starting server... env =", config.CFG.Server.Env)
+	zlog.Init()
+	defer zlog.Sync()
+
+	zlog.Info("服务启动中", "env", config.CFG.Server.Env, "port", config.CFG.Server.Port)
+
 	dao.InitMySQL()
-	dao.InitRedis()
+	redis.InitRedis()
 	router.Init()
 	if err := router.GE.Run(":" + strconv.Itoa(config.CFG.Server.Port)); err != nil {
-		panic(err)
+		zlog.Fatal("HTTP 服务启动失败", "err", err)
 	}
 }
