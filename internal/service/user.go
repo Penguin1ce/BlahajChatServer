@@ -38,19 +38,20 @@ func Register(ctx context.Context, req requests.RegisterReq) (*model.User, error
 }
 
 func Login(ctx context.Context, email, password string) (*model.User, *TokenPair, error) {
-	u, err := dao.GetUserByEmail(email)
+	user, err := dao.GetUserByEmailWithCtx(ctx, email)
 	if err != nil {
 		return nil, nil, err
 	}
-	if u == nil {
+	if user == nil {
 		return nil, nil, errs.ErrInvalidCredentials
 	}
-	if err := bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password)); err != nil {
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
 		return nil, nil, errs.ErrInvalidCredentials
 	}
-	tp, err := issueTokenPair(ctx, u.ID)
+	// 生成TOKEN对
+	tp, err := issueTokenPair(ctx, user.ID)
 	if err != nil {
 		return nil, nil, err
 	}
-	return u, tp, nil
+	return user, tp, nil
 }

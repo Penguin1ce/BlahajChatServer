@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// GetEmailCode 获取注册验证码
 func GetEmailCode(c *gin.Context) {
 	var req requests.RegisterEmailCodeReq
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -33,6 +34,7 @@ func GetEmailCode(c *gin.Context) {
 	response.OK(c, consts.SystemSendSuccess)
 }
 
+// Register 用户注册
 func Register(c *gin.Context) {
 	var req requests.RegisterReq
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -63,16 +65,30 @@ func Register(c *gin.Context) {
 		return
 	}
 	redis.DelValueByKey(key)
-	response.OK(c, response.UserResp{
-		ID:        u.ID,
-		Email:     u.Email,
-		Nickname:  u.Nickname,
-		AvatarURL: u.AvatarURL,
-		CreatedAt: u.CreatedAt,
-		UpdatedAt: u.UpdatedAt,
-	})
+	response.OK(c, toUserResp(u))
 }
 
+// Login 用户的普通登录接口
 func Login(c *gin.Context) {
+	var req requests.LoginReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Fail(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	u, tokenPair, err := service.Login(c.Request.Context(), req.Email, req.Password)
+	if err != nil {
+		if errors.Is(err, errs.ErrInvalidCredentials) {
+			response.Fail(c, http.StatusUnauthorized, errs.ErrInvalidCredentials.Error())
+			return
+		}
+		response.Fail(c, http.StatusInternalServerError, consts.SystemError)
+		return
+	}
+	tokens := toTokenPairResp(tokenPair)
+	userResp := toUserResp(u)
+	response.OK(c, response.LoginResp{
+		User:  userResp,
+		Token: tokens,
+	})
 
 }
