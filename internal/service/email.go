@@ -14,6 +14,7 @@ import (
 // 若 key 已存在（冷却期内），返回 errs.ErrEmailCodeBusy；
 // 邮件发送失败会回滚 key，返回 errs.ErrSendMail。
 func SendEmailCode(ctx context.Context, email string) error {
+	// key格式为sendEmailCode:email
 	key := consts.RedisSendEmailCodeKey + email
 	code := utils.SixUUID()
 

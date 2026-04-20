@@ -10,11 +10,8 @@ import (
 	"time"
 
 	"BlahajChatServer/config"
-	"BlahajChatServer/internal/dao"
-	"BlahajChatServer/internal/model"
 
 	"github.com/redis/go-redis/v9"
-	"golang.org/x/crypto/bcrypt"
 )
 
 type TokenPair struct {
@@ -31,43 +28,6 @@ func randomToken(n int) string {
 
 func refreshKey(token string) string { return "refresh:" + token }
 func blacklistKey(jti string) string { return "blacklist:" + jti }
-
-func Register(ctx context.Context, email, password, nickname string) (*model.User, error) {
-	exist, err := dao.GetUserByEmail(email)
-	if err != nil {
-		return nil, err
-	}
-	if exist != nil {
-		return nil, errs.ErrEmailTaken
-	}
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
-		return nil, err
-	}
-	u := &model.User{Email: email, Password: string(hash), Nickname: nickname}
-	if err := dao.CreateUser(u); err != nil {
-		return nil, err
-	}
-	return u, nil
-}
-
-func Login(ctx context.Context, email, password string) (*model.User, *TokenPair, error) {
-	u, err := dao.GetUserByEmail(email)
-	if err != nil {
-		return nil, nil, err
-	}
-	if u == nil {
-		return nil, nil, errs.ErrInvalidCredentials
-	}
-	if err := bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password)); err != nil {
-		return nil, nil, errs.ErrInvalidCredentials
-	}
-	tp, err := issueTokenPair(ctx, u.ID)
-	if err != nil {
-		return nil, nil, err
-	}
-	return u, tp, nil
-}
 
 func Refresh(ctx context.Context, refreshToken string) (*TokenPair, error) {
 	uidStr, err := redis2.RDB.Get(ctx, refreshKey(refreshToken)).Result()
