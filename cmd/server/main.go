@@ -7,6 +7,7 @@ import (
 	"BlahajChatServer/internal/dao"
 	"BlahajChatServer/internal/redis"
 	"BlahajChatServer/internal/router"
+	"BlahajChatServer/internal/ws"
 	"BlahajChatServer/internal/zlog"
 )
 
@@ -19,6 +20,7 @@ func main() {
 
 	dao.InitMySQL()
 	redis.InitRedis()
+	ws.InitHub()
 	router.Init()
 	if err := router.GE.Run(":" + strconv.Itoa(config.CFG.Server.Port)); err != nil {
 		zlog.Fatal("HTTP 服务启动失败", "err", err)

@@ -31,10 +31,10 @@ func WSLoginHandler(c *gin.Context) {
 		zlog.Error("WS upgrade 失败: " + err.Error())
 		return
 	}
-	defer conn.Close()
-	zlog.Infof("用户 %d 建立 WebSocket 成功", userID)
-	// TODO 客户端注册到 Hub
-
+	client := NewClient(GlobalHub, conn, userID)
+	GlobalHub.Register(client)
+	client.Serve()
+	zlog.Infof("用户 %d 建立 WebSocket 成功 conn=%s", userID, client.connID)
 }
 
 func PingWSHandler(c *gin.Context) {

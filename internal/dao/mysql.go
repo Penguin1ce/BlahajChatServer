@@ -23,7 +23,12 @@ func InitMySQL() {
 		log.Fatal("连接 MySQL 失败 ", err)
 	}
 
-	if err := db.AutoMigrate(&model.User{}); err != nil {
+	if err := db.AutoMigrate(
+		&model.User{},
+		&model.Conversation{},
+		&model.UserConv{},
+		&model.Message{},
+	); err != nil {
 		log.Fatal("AutoMigrate 失败 ", err)
 	}
 
