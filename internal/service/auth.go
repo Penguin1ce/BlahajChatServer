@@ -99,6 +99,7 @@ func issueTokenPair(ctx context.Context, userID uint64) (*TokenPair, error) {
 	if err := redis2.RDB.Set(ctx, refreshKey(refresh), userID, ttl).Err(); err != nil {
 		return nil, err
 	}
+	// TODO 这里Redis存放Token逻辑有点混乱
 	redis2.RDB.SAdd(ctx, userSessionKey(userID), refresh)
 	return &TokenPair{
 		AccessToken:  access,

@@ -3,6 +3,7 @@ package router
 import (
 	"BlahajChatServer/internal/handler"
 	"BlahajChatServer/internal/middleware"
+	"BlahajChatServer/internal/ws"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -23,9 +24,11 @@ func Init() {
 		c.JSON(200, gin.H{"message": "pong"})
 	})
 
-	ws := GE.Group("/ws")
+	wss := GE.Group("/ws", middleware.JWTAuth())
 	{
-		ws.POST("/login", handler.WebsocketLogin)
+		wss.GET("/wslogin", ws.WSLoginHandler)
+		wss.POST("/login", handler.WebsocketLogin)
+		wss.GET("/ping", ws.PingWSHandler)
 	}
 
 	auth := GE.Group("/auth")
