@@ -1,0 +1,753 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Blahaj WS Tester</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #ffffff;
+        --panel: #ffffff;
+        --panel-strong: #ffffff;
+        --line: #e5e7eb;
+        --text: #111827;
+        --muted: #6b7280;
+        --accent: #111827;
+        --accent-strong: #000000;
+        --ok: #15803d;
+        --warn: #b45309;
+        --err: #b42318;
+        --shadow: 0 1px 2px rgba(17, 24, 39, 0.04);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "SF Pro Text", "PingFang SC", "Hiragino Sans GB", sans-serif;
+        color: var(--text);
+        background: var(--bg);
+      }
+
+      .shell {
+        width: min(1180px, calc(100% - 32px));
+        margin: 24px auto 32px;
+      }
+
+      .hero {
+        margin-bottom: 20px;
+        padding: 20px 22px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--panel);
+        box-shadow: var(--shadow);
+      }
+
+      .hero h1 {
+        margin: 0 0 8px;
+        font-size: clamp(24px, 3vw, 32px);
+        line-height: 1.2;
+        letter-spacing: -0.02em;
+      }
+
+      .hero p {
+        margin: 0;
+        max-width: 720px;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 360px minmax(0, 1fr);
+        gap: 20px;
+      }
+
+      .card {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--panel);
+        box-shadow: var(--shadow);
+      }
+
+      .card-inner {
+        padding: 20px;
+      }
+
+      .card h2 {
+        margin: 0 0 14px;
+        font-size: 18px;
+      }
+
+      .stack {
+        display: grid;
+        gap: 14px;
+      }
+
+      label {
+        display: grid;
+        gap: 8px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      input,
+      select,
+      textarea,
+      button {
+        font: inherit;
+      }
+
+      input,
+      select,
+      textarea {
+        width: 100%;
+        padding: 12px 14px;
+        border: 1px solid #d1d5db;
+        border-radius: 10px;
+        background: #ffffff;
+        color: var(--text);
+        transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+      }
+
+      input:focus,
+      select:focus,
+      textarea:focus {
+        outline: none;
+        border-color: #9ca3af;
+        box-shadow: 0 0 0 3px rgba(156, 163, 175, 0.15);
+      }
+
+      textarea {
+        min-height: 120px;
+        resize: vertical;
+      }
+
+      #rawFrame {
+        min-height: 280px;
+        font-family: "SF Mono", "JetBrains Mono", monospace;
+        font-size: 13px;
+        line-height: 1.55;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      button {
+        cursor: pointer;
+        padding: 11px 15px;
+        border: 1px solid #111827;
+        border-radius: 10px;
+        background: var(--accent);
+        color: #fff;
+        box-shadow: none;
+        transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+      }
+
+      button:hover {
+        background: var(--accent-strong);
+      }
+
+      button.secondary {
+        background: #ffffff;
+        color: var(--text);
+        border-color: #d1d5db;
+      }
+
+      button.ghost {
+        background: #ffffff;
+        color: var(--text);
+        border: 1px solid #d1d5db;
+        box-shadow: none;
+      }
+
+      button.secondary:hover,
+      button.ghost:hover {
+        background: #f9fafb;
+      }
+
+      .status {
+        padding: 12px 14px;
+        border-radius: 10px;
+        border: 1px solid var(--line);
+        background: #ffffff;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+
+      .status strong {
+        color: var(--text);
+      }
+
+      .right {
+        display: grid;
+        gap: 20px;
+      }
+
+      .editor-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+      }
+
+      .quick-row {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .log {
+        height: 560px;
+        overflow: auto;
+        padding: 18px;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        background: #111827;
+        color: #f9fafb;
+        font-family: "SF Mono", "JetBrains Mono", monospace;
+        line-height: 1.55;
+        white-space: pre-wrap;
+      }
+
+      .hint {
+        font-size: 12px;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+
+      .section-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 14px;
+      }
+
+      .section-title p {
+        margin: 0;
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      @media (max-width: 980px) {
+        .grid,
+        .editor-grid,
+        .quick-row {
+          grid-template-columns: 1fr;
+        }
+
+        .log {
+          height: 420px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <h1>BlahajChat WebSocket 测试端</h1>
+        <p>
+          这个页面用于本地调试消息发送链路：先调用 <code>/auth/login</code> 获取
+          Access Token，再连接 <code>/ws/wslogin</code>，然后发送
+          <code>send</code> 帧或任意自定义帧。
+        </p>
+      </section>
+
+      <section class="grid">
+        <aside class="stack">
+          <div class="card">
+            <div class="card-inner stack">
+              <h2>服务配置</h2>
+              <label>
+                HTTP Base URL
+                <input id="httpBase" placeholder="http://127.0.0.1:8080" />
+              </label>
+              <label>
+                WS URL
+                <input id="wsURL" placeholder="ws://127.0.0.1:8080/ws/wslogin" />
+              </label>
+              <div class="hint">默认会基于当前页面地址自动填充，你也可以手动改成别的环境。</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-inner stack">
+              <h2>登录拿 Token</h2>
+              <label>
+                邮箱
+                <input id="email" type="email" placeholder="email@icloud.com" />
+              </label>
+              <label>
+                密码
+                <input id="password" type="password" placeholder="请输入密码" />
+              </label>
+              <div class="actions">
+                <button id="loginBtn">登录</button>
+                <button id="meBtn" class="ghost">校验 Token</button>
+              </div>
+              <label>
+                Access Token
+                <textarea id="token" placeholder="登录后会自动写入，也可以手动粘贴"></textarea>
+              </label>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-inner stack">
+              <h2>连接控制</h2>
+              <div class="status" id="connState">
+                <strong>状态：</strong>未连接
+              </div>
+              <div class="actions">
+                <button id="connectBtn">连接 WS</button>
+                <button id="disconnectBtn" class="secondary">断开连接</button>
+                <button id="pingBtn" class="ghost">发送 ping</button>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        <section class="right">
+          <div class="card">
+            <div class="card-inner">
+              <div class="section-title">
+                <h2>快速发送 send 帧</h2>
+                <p>当前服务端未实现业务分发时，也能先观察连通性与原始收发。</p>
+              </div>
+              <div class="stack">
+                <div class="quick-row">
+                  <label>
+                    Conv ID
+                    <input id="convID" placeholder="例如 c2c_1_2" />
+                  </label>
+                  <label>
+                    Type
+                    <select id="msgType">
+                      <option value="text">text</option>
+                      <option value="image">image</option>
+                      <option value="file">file</option>
+                      <option value="audio">audio</option>
+                    </select>
+                  </label>
+                </div>
+                <label>
+                  文本消息
+                  <input id="textMessage" placeholder="输入文本消息，发送时会包装成 {&quot;text&quot;:&quot;...&quot;}" />
+                </label>
+                <label>
+                  Content JSON
+                  <textarea id="contentJSON" placeholder='{"text":"hello"}'></textarea>
+                </label>
+                <div class="actions">
+                  <button id="sendTextBtn">发送文本模板</button>
+                  <button id="sendSendBtn">发送自定义 send</button>
+                </div>
+                <div class="hint">
+                  “发送文本模板” 会自动生成 <code>client_msg_id</code> 和
+                  <code>seq</code>；“发送自定义 send” 则读取上面的 Conv ID / Type /
+                  Content JSON。
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-inner">
+              <div class="section-title">
+                <h2>原始帧</h2>
+                <p>可直接发送任意 op，用来测试 ping/read/recall 或非法输入。</p>
+              </div>
+              <div class="stack">
+                <label>
+                  Frame JSON
+                  <textarea id="rawFrame"></textarea>
+                </label>
+                <div class="actions">
+                  <button id="sendRawBtn">发送原始帧</button>
+                  <button id="resetRawBtn" class="ghost">重置模板</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-inner">
+              <div class="section-title">
+                <h2>日志</h2>
+                <div class="actions">
+                  <button id="clearLogBtn" class="ghost">清空日志</button>
+                </div>
+              </div>
+              <div class="log" id="log"></div>
+            </div>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <script>
+      const storageKey = "blahaj_ws_tester_state";
+      const state = {
+        socket: null,
+        seq: 1,
+      };
+
+      const el = {
+        httpBase: document.getElementById("httpBase"),
+        wsURL: document.getElementById("wsURL"),
+        email: document.getElementById("email"),
+        password: document.getElementById("password"),
+        token: document.getElementById("token"),
+        connState: document.getElementById("connState"),
+        convID: document.getElementById("convID"),
+        msgType: document.getElementById("msgType"),
+        textMessage: document.getElementById("textMessage"),
+        contentJSON: document.getElementById("contentJSON"),
+        rawFrame: document.getElementById("rawFrame"),
+        log: document.getElementById("log"),
+      };
+
+      function now() {
+        return new Date().toLocaleTimeString("zh-CN", { hour12: false });
+      }
+
+      function appendLog(kind, payload) {
+        const line = `[${now()}] ${kind}\n${typeof payload === "string" ? payload : JSON.stringify(payload, null, 2)}\n`;
+        el.log.textContent += `${line}\n`;
+        el.log.scrollTop = el.log.scrollHeight;
+      }
+
+      function setConnState(text, tone) {
+        const colorMap = {
+          ok: "var(--ok)",
+          warn: "var(--warn)",
+          err: "var(--err)",
+          normal: "var(--text)",
+        };
+        el.connState.innerHTML = `<strong>状态：</strong>${text}`;
+        el.connState.style.color = colorMap[tone] || colorMap.normal;
+      }
+
+      function deriveDefaults() {
+        const httpBase = `${window.location.protocol}//${window.location.host}`;
+        const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+        const wsURL = `${wsProtocol}//${window.location.host}/ws/wslogin`;
+        return { httpBase, wsURL };
+      }
+
+      function buildRawTemplate() {
+        const convID = el.convID.value.trim() || "conv-demo";
+        const text = el.textMessage.value.trim() || "hello";
+        const frame = {
+          op: "send",
+          seq: state.seq,
+          data: {
+            client_msg_id: crypto.randomUUID(),
+            conv_id: convID,
+            type: "text",
+            content: { text },
+          },
+        };
+        el.rawFrame.value = JSON.stringify(frame, null, 2);
+      }
+
+      function persist() {
+        const snapshot = {
+          httpBase: el.httpBase.value,
+          wsURL: el.wsURL.value,
+          email: el.email.value,
+          token: el.token.value,
+          convID: el.convID.value,
+          msgType: el.msgType.value,
+          textMessage: el.textMessage.value,
+          contentJSON: el.contentJSON.value,
+          rawFrame: el.rawFrame.value,
+          seq: state.seq,
+        };
+        localStorage.setItem(storageKey, JSON.stringify(snapshot));
+      }
+
+      function restore() {
+        const defaults = deriveDefaults();
+        const saved = JSON.parse(localStorage.getItem(storageKey) || "{}");
+        el.httpBase.value = saved.httpBase || defaults.httpBase;
+        el.wsURL.value = saved.wsURL || defaults.wsURL;
+        el.email.value = saved.email || "";
+        el.token.value = saved.token || "";
+        el.convID.value = saved.convID || "";
+        el.msgType.value = saved.msgType || "text";
+        el.textMessage.value = saved.textMessage || "";
+        el.contentJSON.value = saved.contentJSON || '{\n  "text": "hello"\n}';
+        state.seq = Number(saved.seq) > 0 ? Number(saved.seq) : 1;
+        if (saved.rawFrame) {
+          el.rawFrame.value = saved.rawFrame;
+        } else {
+          buildRawTemplate();
+        }
+      }
+
+      function nextSeq() {
+        const seq = state.seq;
+        state.seq += 1;
+        persist();
+        return seq;
+      }
+
+      function parseJSON(input, fieldName) {
+        try {
+          return JSON.parse(input);
+        } catch (error) {
+          throw new Error(`${fieldName} 不是合法 JSON: ${error.message}`);
+        }
+      }
+
+      async function login() {
+        const base = el.httpBase.value.trim().replace(/\/$/, "");
+        const body = {
+          email: el.email.value.trim(),
+          password: el.password.value,
+        };
+        appendLog("HTTP 请求 /auth/login", body);
+        const resp = await fetch(`${base}/auth/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const data = await resp.json().catch(() => ({}));
+        appendLog(`HTTP 响应 ${resp.status}`, data);
+        if (!resp.ok) {
+          throw new Error(data.message || `登录失败: HTTP ${resp.status}`);
+        }
+        const accessToken = data.data && data.data.token ? data.data.token.access_token : "";
+        if (!accessToken) {
+          throw new Error("登录成功，但响应里没有 access_token");
+        }
+        el.token.value = accessToken;
+        persist();
+      }
+
+      async function fetchMe() {
+        const base = el.httpBase.value.trim().replace(/\/$/, "");
+        const token = el.token.value.trim();
+        appendLog("HTTP 请求 /api/me", { token_preview: token.slice(0, 24) + "..." });
+        const resp = await fetch(`${base}/api/me`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const data = await resp.json().catch(() => ({}));
+        appendLog(`HTTP 响应 ${resp.status}`, data);
+        if (!resp.ok) {
+          throw new Error(data.message || data.error || `校验失败: HTTP ${resp.status}`);
+        }
+      }
+
+      function connectWS() {
+        const token = el.token.value.trim();
+        if (!token) {
+          throw new Error("请先提供 access token");
+        }
+        if (state.socket && state.socket.readyState === WebSocket.OPEN) {
+          throw new Error("当前已经连接");
+        }
+        const rawURL = el.wsURL.value.trim();
+        const connector = rawURL.includes("?") ? "&" : "?";
+        const url = `${rawURL}${connector}token=${encodeURIComponent(token)}`;
+        appendLog("WS 连接", url);
+        const socket = new WebSocket(url);
+        state.socket = socket;
+        setConnState("连接中", "warn");
+
+        socket.addEventListener("open", () => {
+          setConnState("已连接", "ok");
+          appendLog("WS open", url);
+        });
+
+        socket.addEventListener("message", (event) => {
+          const text = typeof event.data === "string" ? event.data : "[binary]";
+          try {
+            appendLog("WS recv", JSON.parse(text));
+          } catch (_) {
+            appendLog("WS recv", text);
+          }
+        });
+
+        socket.addEventListener("close", (event) => {
+          setConnState(`已断开 code=${event.code} reason=${event.reason || "none"}`, "err");
+          appendLog("WS close", { code: event.code, reason: event.reason });
+          state.socket = null;
+        });
+
+        socket.addEventListener("error", () => {
+          setConnState("连接异常", "err");
+          appendLog("WS error", "浏览器报告连接异常，请看控制台或服务端日志");
+        });
+      }
+
+      function disconnectWS() {
+        if (!state.socket) {
+          return;
+        }
+        state.socket.close(1000, "manual-close");
+      }
+
+      function sendFrame(frame) {
+        if (!state.socket || state.socket.readyState !== WebSocket.OPEN) {
+          throw new Error("WebSocket 未连接");
+        }
+        const text = JSON.stringify(frame);
+        state.socket.send(text);
+        appendLog("WS send", frame);
+      }
+
+      function sendTextTemplate() {
+        const convID = el.convID.value.trim();
+        const text = el.textMessage.value.trim();
+        if (!convID) {
+          throw new Error("Conv ID 不能为空");
+        }
+        if (!text) {
+          throw new Error("文本消息不能为空");
+        }
+        const frame = {
+          op: "send",
+          seq: nextSeq(),
+          data: {
+            client_msg_id: crypto.randomUUID(),
+            conv_id: convID,
+            type: "text",
+            content: {
+              text,
+            },
+          },
+        };
+        sendFrame(frame);
+        buildRawTemplate();
+      }
+
+      function sendCustomSend() {
+        const convID = el.convID.value.trim();
+        if (!convID) {
+          throw new Error("Conv ID 不能为空");
+        }
+        const frame = {
+          op: "send",
+          seq: nextSeq(),
+          data: {
+            client_msg_id: crypto.randomUUID(),
+            conv_id: convID,
+            type: el.msgType.value,
+            content: parseJSON(el.contentJSON.value, "Content JSON"),
+          },
+        };
+        sendFrame(frame);
+        buildRawTemplate();
+      }
+
+      function sendRawFrame() {
+        const frame = parseJSON(el.rawFrame.value, "Frame JSON");
+        sendFrame(frame);
+      }
+
+      document.getElementById("loginBtn").addEventListener("click", async () => {
+        try {
+          await login();
+        } catch (error) {
+          appendLog("错误", error.message);
+        }
+      });
+
+      document.getElementById("meBtn").addEventListener("click", async () => {
+        try {
+          await fetchMe();
+        } catch (error) {
+          appendLog("错误", error.message);
+        }
+      });
+
+      document.getElementById("connectBtn").addEventListener("click", () => {
+        try {
+          connectWS();
+        } catch (error) {
+          appendLog("错误", error.message);
+        }
+      });
+
+      document.getElementById("disconnectBtn").addEventListener("click", () => {
+        disconnectWS();
+      });
+
+      document.getElementById("pingBtn").addEventListener("click", () => {
+        try {
+          sendFrame({ op: "ping", seq: nextSeq() });
+        } catch (error) {
+          appendLog("错误", error.message);
+        }
+      });
+
+      document.getElementById("sendTextBtn").addEventListener("click", () => {
+        try {
+          sendTextTemplate();
+        } catch (error) {
+          appendLog("错误", error.message);
+        }
+      });
+
+      document.getElementById("sendSendBtn").addEventListener("click", () => {
+        try {
+          sendCustomSend();
+        } catch (error) {
+          appendLog("错误", error.message);
+        }
+      });
+
+      document.getElementById("sendRawBtn").addEventListener("click", () => {
+        try {
+          sendRawFrame();
+        } catch (error) {
+          appendLog("错误", error.message);
+        }
+      });
+
+      document.getElementById("resetRawBtn").addEventListener("click", () => {
+        buildRawTemplate();
+        persist();
+      });
+
+      document.getElementById("clearLogBtn").addEventListener("click", () => {
+        el.log.textContent = "";
+      });
+
+      [
+        el.httpBase,
+        el.wsURL,
+        el.email,
+        el.token,
+        el.convID,
+        el.msgType,
+        el.textMessage,
+        el.contentJSON,
+        el.rawFrame,
+      ].forEach((node) => {
+        node.addEventListener("input", persist);
+      });
+
+      el.textMessage.addEventListener("input", buildRawTemplate);
+      el.convID.addEventListener("input", buildRawTemplate);
+
+      restore();
+      setConnState("未连接", "normal");
+      appendLog("初始化", {
+        message: "页面已就绪，可先登录拿 token，再连接 WS。",
+        ws_url: el.wsURL.value,
+      });
+    </script>
+  </body>
+</html>

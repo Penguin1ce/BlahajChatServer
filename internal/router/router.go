@@ -24,11 +24,14 @@ func Init() {
 		c.JSON(200, gin.H{"message": "pong"})
 	})
 
+	debug := GE.Group("/debug")
+	{
+		debug.GET("/ws-tester", handler.WSTesterPage)
+	}
+
 	wss := GE.Group("/ws", middleware.JWTAuth())
 	{
 		wss.GET("/wslogin", ws.WSLoginHandler)
-		wss.POST("/login", handler.WebsocketLogin)
-		wss.GET("/ping", ws.PingWSHandler)
 	}
 
 	auth := GE.Group("/auth")
