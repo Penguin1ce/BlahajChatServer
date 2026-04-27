@@ -45,8 +45,10 @@ func (h *Hub) Run() {
 	for {
 		select {
 		case c := <-h.register:
+			// 添加客户端
 			h.addClient(c)
 		case c := <-h.unregister:
+			// 注销客户端
 			h.removeClient(c)
 		case env := <-h.broadcast:
 			if env == nil {

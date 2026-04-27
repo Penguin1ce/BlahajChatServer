@@ -90,6 +90,12 @@ func (c *Client) dispatch(payload []byte) {
 	switch frame.Op {
 	case OpPing:
 		// 收到业务心跳：原样回 pong，seq 透传，客户端用它算 RTT
+		// 收到 send 帧的ping
+		zlog.Debug("WS 收到 ping 帧",
+			"uid", c.userID,
+			"conn", c.connID,
+			"ping", "pong",
+		)
 		c.sendFrame(OpPong, frame.Seq, nil)
 
 	case OpSend:
@@ -152,6 +158,7 @@ func (c *Client) sendFrame(op Op, seq uint64, payload any) {
 	case c.send <- data:
 	default:
 		zlog.Warnf("WS send 缓冲满 uid=%d conn=%s", c.userID, c.connID)
+		// 缓冲满 = 这条连接已经不是"慢"而是"坏"了。继续给它喂数据只会污染整个 Hub 的派发链路，所以快速失败、断连、让客户端重连重新建立干净的会话，是更稳的策略。
 		go c.hub.Unregister(c)
 	}
 }

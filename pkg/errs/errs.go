@@ -10,4 +10,8 @@ var (
 	ErrInvalidRefresh     = errors.New("refresh token 无效或已过期")
 	ErrEmailCodeBusy      = errors.New("验证码发送过于频繁")
 	ErrSendMail           = errors.New("邮件发送失败")
+	ErrConvNotFound       = errors.New("对话没有找到")
+	ErrFoundC2CPair       = errors.New("不正确的C2C对")
+	ErrNotMember          = errors.New("不是会话成员")
+	ErrMsgNotFound        = errors.New("消息不存在")
 )
