@@ -8,11 +8,17 @@ const (
 	CtxExp                = "exp"
 	RedisSendEmailCodeKey = "sendEmailCode:"
 
+	// redis做幂等的键
+	ClientMessageKey = "clientMessageKey:"
+
 	// 用户的默认信息
 	DefaultAvatarURL = "https://images.cdn.org/img/index/sticker.webp"
 
 	// 验证码有效期
 	EmailCodeTTL = 5 * time.Minute
+
+	// client_msg_id 幂等 key 的有效期
+	ClientMsgIDIdemTTL = 24 * time.Hour
 
 	// 这里是成功信息枚举
 	SystemSendSuccess = "发送成功,请前往邮箱查收"
