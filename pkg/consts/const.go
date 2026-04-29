@@ -31,4 +31,7 @@ const (
 	EmailCodeErr     = "邮箱验证码错误"
 	EmailExist       = "该邮箱已存在"
 	UserMessageError = "用户权限错误"
+	UserNotLogin     = "用户未登录"
+	LackConversionID = "缺少会话 ID"
+	ParamError       = "参数错误"
 )

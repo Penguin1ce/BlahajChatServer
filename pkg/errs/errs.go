@@ -15,4 +15,5 @@ var (
 	ErrNotMember          = errors.New("不是会话成员")
 	ErrMsgNotFound        = errors.New("消息不存在")
 	ErrInvalidMessage     = errors.New("消息参数错误")
+	ErrSystem             = errors.New("系统错误")
 )

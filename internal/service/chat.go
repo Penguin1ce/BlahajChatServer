@@ -36,7 +36,7 @@ func HandleSend(ctx context.Context, uid uint64, d wspayload.SendData) (*wspaylo
 
 	// 1. 转换为Redis字段的key
 	key := sendIdemKey(uid, d.ClientMsgID)
-	// 2. 当前暂时用uudi
+	// 2. 当前暂时用uuid
 	msgID := uuid.NewString()
 	// 3. 原子操作
 	ok, err := redis.SetNXValueByKeyExpire(key, msgID, consts.ClientMsgIDIdemTTL)
