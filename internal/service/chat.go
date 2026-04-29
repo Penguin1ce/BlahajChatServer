@@ -28,9 +28,10 @@ import (
 //    - IncrUnreadExceptTx
 // 6. 返回 MsgData
 
-func HandleSend(ctx context.Context, uid uint64, d wspayload.SendData) (*wspayload.MsgData, error) {
+// HandleSend 返回值分别为 MsgData, 是否为新消息, 错误
+func HandleSend(ctx context.Context, uid uint64, d wspayload.SendData) (*wspayload.MsgData, bool, error) {
 	if err := validateSendData(d); err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	// 1. 转换为Redis字段的key
@@ -40,27 +41,28 @@ func HandleSend(ctx context.Context, uid uint64, d wspayload.SendData) (*wspaylo
 	// 3. 原子操作
 	ok, err := redis.SetNXValueByKeyExpire(key, msgID, consts.ClientMsgIDIdemTTL)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	if !ok {
 		// 这里说明消息已经在redis的幂等里了
 		oldMsgID, err := redis.GetValueByKey(key)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
-		return waitExistingMsgData(ctx, oldMsgID)
+		msgData, err := waitExistingMsgData(ctx, oldMsgID)
+		return msgData, false, err
 	}
 
 	// 4. 检查是否是conversion的member
 	member, err := dao.IsMember(ctx, uid, d.ConvID)
 	if err != nil {
 		redis.DelValueByKey(key)
-		return nil, err
+		return nil, false, err
 	}
 	if !member {
 		redis.DelValueByKey(key)
-		return nil, errs.ErrNotMember
+		return nil, false, errs.ErrNotMember
 	}
 
 	now := time.Now()
@@ -90,10 +92,11 @@ func HandleSend(ctx context.Context, uid uint64, d wspayload.SendData) (*wspaylo
 	})
 	if err != nil {
 		redis.DelValueByKey(key)
-		return nil, err
+		return nil, false, err
 	}
 
-	return messageToMsgData(msg, d.Mentions)
+	msgData, err := messageToMsgData(msg, d.Mentions)
+	return msgData, true, err
 }
 
 func sendIdemKey(uid uint64, clientMsgID string) string {

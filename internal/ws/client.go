@@ -1,10 +1,13 @@
 package ws
 
 import (
+	"context"
 	"encoding/json"
 	"sync/atomic"
 	"time"
 
+	"BlahajChatServer/internal/dao"
+	"BlahajChatServer/internal/service"
 	"BlahajChatServer/internal/zlog"
 
 	"github.com/google/uuid"
@@ -14,6 +17,7 @@ import (
 const (
 	sendBufSize    = 64
 	writeWait      = 10 * time.Second
+	sendHandleWait = 5 * time.Second
 	pongWait       = 60 * time.Second
 	pingPeriod     = (pongWait * 9) / 10
 	maxMessageSize = 1 << 20 // 1MB，单帧上限
@@ -77,8 +81,7 @@ func (c *Client) readPump() {
 	}
 }
 
-// dispatch 解 Frame 并按 Op 分发。第一阶段只跑通协议骨架，
-// send 暂时回写死的 ackok，真正落库 / fan-out 等第二阶段接 service 层。
+// dispatch 解 Frame 并按 Op 分发。
 func (c *Client) dispatch(payload []byte) {
 	var frame Frame
 	if err := json.Unmarshal(payload, &frame); err != nil {
@@ -99,10 +102,8 @@ func (c *Client) dispatch(payload []byte) {
 		c.sendFrame(OpPong, frame.Seq, nil)
 
 	case OpSend:
-		// 收到客户端发的消息帧。
-		// 第一阶段：只校验 payload 格式 + 回写死的 ackok，验证协议链路（read→dispatch→write）通畅。
-		// 第二阶段：接 service.HandleSend —— Redis 幂等(client_msg_id) → 成员资格校验
-		//          → 生成 MsgID 落 messages 表 → 更新 user_conv.LastMsgAt/unread → fan-out 给其它在线端。
+		// send 是发消息主链路：WS 层负责解协议帧、回 ack、扇出 msg；
+		// 真正的幂等、成员校验、落库、未读更新都放在 service.HandleSend。
 		var d SendData
 		if err := json.Unmarshal(frame.Data, &d); err != nil {
 			c.sendFrame(OpError, frame.Seq, ErrorData{Code: "bad_data", Message: err.Error()})
@@ -117,12 +118,47 @@ func (c *Client) dispatch(payload []byte) {
 			"conv_id", d.ConvID,
 			"type", d.Type,
 		)
+
+		ctx, cancel := context.WithTimeout(context.Background(), sendHandleWait)
+		defer cancel()
+
+		// created=false 表示命中了 client_msg_id 幂等：旧消息已经落过库。
+		// 这种情况只需要给当前发送连接补 ack，不要再次广播 msg。
+		msg, created, err := service.HandleSend(ctx, c.userID, d)
+		if err != nil {
+			zlog.Warnf("WS send 处理失败 uid=%d conn=%s conv=%s err=%s", c.userID, c.connID, d.ConvID, err.Error())
+			c.sendFrame(OpError, frame.Seq, ErrorData{Code: "send_failed", Message: err.Error()})
+			return
+		}
+
+		// ackok 是“发送请求已被服务端成功处理”的回执，只发给当前连接。
+		// 客户端用 client_msg_id 把本地发送中的临时消息换成服务端正式 msg_id。
 		c.sendFrame(OpAckOK, frame.Seq, AckOKData{
-			MsgID:       uuid.NewString(), // TODO 第二阶段改为 service 层生成的全局 MsgID
-			ClientMsgID: d.ClientMsgID,    // 原样回带，客户端用它匹配本地"发送中"草稿
+			MsgID:       msg.MsgID,
+			ClientMsgID: d.ClientMsgID,
 			ConvID:      d.ConvID,
-			Ts:          time.Now().UnixMilli(), // 服务端权威时间戳，不信任客户端时钟
+			Ts:          msg.CreatedAt,
 		})
+
+		if !created {
+			return
+		}
+
+		// OpMsg 是“会话新增消息”的业务事件，需要发给会话所有成员的所有在线端。
+		// 这里包含发送者自己的其它端；当前连接也会收到一份，客户端用 msg_id/client_msg_id 去重。
+		members, err := dao.ListMembers(ctx, d.ConvID)
+		if err != nil {
+			zlog.Warnf("WS send 成员列表查询失败 uid=%d conn=%s conv=%s err=%s", c.userID, c.connID, d.ConvID, err.Error())
+			return
+		}
+		data, err := marshalFrame(OpMsg, 0, msg)
+		if err != nil {
+			zlog.Errorf("WS msg 帧序列化失败 uid=%d conn=%s msg=%s err=%s", c.userID, c.connID, msg.MsgID, err.Error())
+			return
+		}
+		if !c.hub.Broadcast(&Envelope{Targets: members, Data: data}) {
+			zlog.Warnf("WS msg 广播失败 uid=%d conn=%s msg=%s targets=%d", c.userID, c.connID, msg.MsgID, len(members))
+		}
 
 	default:
 		// 未识别的 op：可能是客户端版本超前 / 拼写错。回 error 不断连，让客户端自己处理
@@ -133,20 +169,27 @@ func (c *Client) dispatch(payload []byte) {
 // sendFrame 序列化 Frame 并塞进 send 通道，由 writePump 串行写出。
 // closed 已置位 / 缓冲已满都不阻塞，避免回压拖死 dispatch。
 func (c *Client) sendFrame(op Op, seq uint64, payload any) {
-	var raw json.RawMessage
-	if payload != nil {
-		b, err := json.Marshal(payload)
-		if err != nil {
-			zlog.Errorf("帧 payload 序列化失败 op=%s err=%s", op, err.Error())
-			return
-		}
-		raw = b
-	}
-	data, err := json.Marshal(Frame{Op: op, Seq: seq, Data: raw})
+	data, err := marshalFrame(op, seq, payload)
 	if err != nil {
 		zlog.Errorf("帧序列化失败 op=%s err=%s", op, err.Error())
 		return
 	}
+	c.sendRaw(data)
+}
+
+func marshalFrame(op Op, seq uint64, payload any) ([]byte, error) {
+	var raw json.RawMessage
+	if payload != nil {
+		b, err := json.Marshal(payload)
+		if err != nil {
+			return nil, err
+		}
+		raw = b
+	}
+	return json.Marshal(Frame{Op: op, Seq: seq, Data: raw})
+}
+
+func (c *Client) sendRaw(data []byte) {
 	if c.closed.Load() {
 		return
 	}

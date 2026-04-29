@@ -104,6 +104,21 @@ func (h *Hub) Unregister(c *Client) {
 	h.unregister <- c
 }
 
+// Broadcast 把一份已经序列化好的帧投递给一组用户。
+// broadcast 队列满时降级为异步直投，避免业务层直接操作裸 channel。
+func (h *Hub) Broadcast(env *Envelope) bool {
+	if h == nil || env == nil || len(env.Targets) == 0 || len(env.Data) == 0 {
+		return false
+	}
+	select {
+	case h.broadcast <- env:
+	default:
+		zlog.Warnf("Hub broadcast 缓冲满 targets=%d", len(env.Targets))
+		go h.SendToUsers(env.Targets, env.Data)
+	}
+	return true
+}
+
 // SendToUser 把同一份数据投递给该用户所有在线连接。
 // send 通道满视为该连接落后太多，踢掉（异步 Unregister）。
 func (h *Hub) SendToUser(uid uint64, data []byte) {
