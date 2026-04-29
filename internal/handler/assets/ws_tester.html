@@ -7,18 +7,19 @@
     <style>
       :root {
         color-scheme: light;
-        --bg: #ffffff;
+        --bg: #f5f7fb;
         --panel: #ffffff;
-        --panel-strong: #ffffff;
-        --line: #e5e7eb;
-        --text: #111827;
-        --muted: #6b7280;
-        --accent: #111827;
-        --accent-strong: #000000;
-        --ok: #15803d;
-        --warn: #b45309;
-        --err: #b42318;
-        --shadow: 0 1px 2px rgba(17, 24, 39, 0.04);
+        --soft: #f9fafc;
+        --line: #d9e0ea;
+        --line-strong: #b9c3d2;
+        --text: #172033;
+        --muted: #647084;
+        --accent: #2563eb;
+        --accent-dark: #1d4ed8;
+        --ok: #0f8a5f;
+        --warn: #b76e00;
+        --err: #c2413a;
+        --ink: #111827;
       }
 
       * {
@@ -28,243 +29,396 @@
       body {
         margin: 0;
         min-height: 100vh;
-        font-family: "SF Pro Text", "PingFang SC", "Hiragino Sans GB", sans-serif;
+        font-family: "SF Pro Text", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+        font-size: 14px;
         color: var(--text);
         background: var(--bg);
       }
 
-      .shell {
-        width: min(1180px, calc(100% - 32px));
-        margin: 24px auto 32px;
+      button,
+      input,
+      textarea,
+      select {
+        font: inherit;
       }
 
-      .hero {
-        margin-bottom: 20px;
-        padding: 20px 22px;
+      button {
+        min-height: 36px;
+        padding: 0 12px;
+        border: 1px solid var(--accent);
+        border-radius: 8px;
+        color: #fff;
+        background: var(--accent);
+        cursor: pointer;
+        white-space: nowrap;
+      }
+
+      button:hover {
+        background: var(--accent-dark);
+        border-color: var(--accent-dark);
+      }
+
+      button.secondary {
+        color: var(--text);
+        background: #fff;
+        border-color: var(--line-strong);
+      }
+
+      button.secondary:hover {
+        background: var(--soft);
+      }
+
+      button.danger {
+        background: var(--err);
+        border-color: var(--err);
+      }
+
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.55;
+      }
+
+      input,
+      textarea,
+      select {
+        width: 100%;
+        min-height: 36px;
+        padding: 8px 10px;
+        color: var(--text);
+        background: #fff;
         border: 1px solid var(--line);
-        border-radius: 12px;
-        background: var(--panel);
-        box-shadow: var(--shadow);
+        border-radius: 8px;
       }
 
-      .hero h1 {
-        margin: 0 0 8px;
-        font-size: clamp(24px, 3vw, 32px);
-        line-height: 1.2;
-        letter-spacing: -0.02em;
+      textarea {
+        resize: vertical;
+        line-height: 1.5;
+        font-family: "SF Mono", "JetBrains Mono", Consolas, monospace;
+        font-size: 13px;
       }
 
-      .hero p {
-        margin: 0;
-        max-width: 720px;
-        color: var(--muted);
-        line-height: 1.6;
-      }
-
-      .grid {
-        display: grid;
-        grid-template-columns: 360px minmax(0, 1fr);
-        gap: 20px;
-      }
-
-      .card {
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        background: var(--panel);
-        box-shadow: var(--shadow);
-      }
-
-      .card-inner {
-        padding: 20px;
-      }
-
-      .card h2 {
-        margin: 0 0 14px;
-        font-size: 18px;
-      }
-
-      .stack {
-        display: grid;
-        gap: 14px;
+      input:focus,
+      textarea:focus,
+      select:focus {
+        outline: 2px solid rgba(37, 99, 235, 0.16);
+        border-color: var(--accent);
       }
 
       label {
         display: grid;
+        gap: 6px;
+        min-width: 0;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .app {
+        width: min(1180px, calc(100% - 28px));
+        margin: 14px auto 24px;
+      }
+
+      .topbar {
+        display: grid;
+        gap: 12px;
+        margin-bottom: 12px;
+        padding: 12px 14px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .brand-mark {
+        display: grid;
+        place-items: center;
+        width: 34px;
+        height: 34px;
+        border-radius: 8px;
+        color: #fff;
+        background: var(--ink);
+        font-weight: 700;
+      }
+
+      .brand h1 {
+        margin: 0;
+        font-size: 18px;
+      }
+
+      .brand .sub {
+        margin-top: 2px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .status-row {
+        display: flex;
+        flex-wrap: wrap;
         gap: 8px;
-        font-size: 13px;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        min-height: 28px;
+        padding: 0 10px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--soft);
         color: var(--muted);
       }
 
-      input,
-      select,
-      textarea,
-      button {
-        font: inherit;
-      }
-
-      input,
-      select,
-      textarea {
-        width: 100%;
-        padding: 12px 14px;
-        border: 1px solid #d1d5db;
-        border-radius: 10px;
-        background: #ffffff;
+      .pill strong {
+        margin-left: 4px;
         color: var(--text);
-        transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+        font-weight: 650;
       }
 
-      input:focus,
-      select:focus,
-      textarea:focus {
-        outline: none;
-        border-color: #9ca3af;
-        box-shadow: 0 0 0 3px rgba(156, 163, 175, 0.15);
+      .pill.ok strong {
+        color: var(--ok);
       }
 
-      textarea {
-        min-height: 120px;
-        resize: vertical;
+      .pill.warn strong {
+        color: var(--warn);
       }
 
-      #rawFrame {
-        min-height: 280px;
-        font-family: "SF Mono", "JetBrains Mono", monospace;
-        font-size: 13px;
-        line-height: 1.55;
+      .pill.err strong {
+        color: var(--err);
+      }
+
+      .flow {
+        display: grid;
+        gap: 12px;
+      }
+
+      .panel {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel);
+        overflow: hidden;
+      }
+
+      .panel-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        min-height: 42px;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--line);
+        background: var(--soft);
+      }
+
+      .panel-head h2 {
+        margin: 0;
+        font-size: 14px;
+      }
+
+      .step {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        margin-right: 8px;
+        border-radius: 8px;
+        color: #fff;
+        background: var(--ink);
+        font-size: 12px;
+      }
+
+      .panel-body {
+        display: grid;
+        gap: 12px;
+        padding: 12px;
+      }
+
+      .fields {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .fields.three {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
       }
 
       .actions {
         display: flex;
         flex-wrap: wrap;
-        gap: 10px;
+        gap: 8px;
       }
 
-      button {
-        cursor: pointer;
-        padding: 11px 15px;
-        border: 1px solid #111827;
-        border-radius: 10px;
-        background: var(--accent);
-        color: #fff;
-        box-shadow: none;
-        transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
-      }
-
-      button:hover {
-        background: var(--accent-strong);
-      }
-
-      button.secondary {
-        background: #ffffff;
+      .check {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 36px;
         color: var(--text);
-        border-color: #d1d5db;
+        font-size: 13px;
       }
 
-      button.ghost {
-        background: #ffffff;
-        color: var(--text);
-        border: 1px solid #d1d5db;
-        box-shadow: none;
+      .check input {
+        width: 16px;
+        min-height: 16px;
       }
 
-      button.secondary:hover,
-      button.ghost:hover {
-        background: #f9fafb;
+      .token {
+        min-height: 72px;
       }
 
-      .status {
-        padding: 12px 14px;
-        border-radius: 10px;
+      .content-box {
+        min-height: 92px;
+      }
+
+      .raw-frame {
+        min-height: 180px;
+      }
+
+      .timeline {
+        min-height: 260px;
+        max-height: 520px;
+        overflow: auto;
+        padding: 12px;
         border: 1px solid var(--line);
-        background: #ffffff;
-        color: var(--muted);
-        line-height: 1.5;
+        border-radius: 8px;
+        background: #fff;
       }
 
-      .status strong {
+      .empty {
+        display: grid;
+        place-items: center;
+        min-height: 180px;
+        color: var(--muted);
+        border: 1px dashed var(--line);
+        border-radius: 8px;
+        background: var(--soft);
+      }
+
+      .msg {
+        display: grid;
+        gap: 6px;
+        margin-bottom: 10px;
+        padding: 10px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fff;
+      }
+
+      .msg.mine {
+        border-color: rgba(37, 99, 235, 0.35);
+        background: #f7faff;
+      }
+
+      .msg-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .msg-head b {
         color: var(--text);
       }
 
-      .right {
-        display: grid;
-        gap: 20px;
+      .msg-content {
+        line-height: 1.55;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
       }
 
-      .editor-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 16px;
-      }
-
-      .quick-row {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 12px;
+      .msg-meta {
+        color: var(--muted);
+        font-family: "SF Mono", "JetBrains Mono", Consolas, monospace;
+        font-size: 11px;
+        overflow-wrap: anywhere;
       }
 
       .log {
-        height: 560px;
+        min-height: 260px;
+        max-height: 460px;
         overflow: auto;
-        padding: 18px;
-        border: 1px solid #e5e7eb;
-        border-radius: 10px;
+        padding: 10px;
+        border-radius: 8px;
+        color: #e8edf6;
         background: #111827;
-        color: #f9fafb;
-        font-family: "SF Mono", "JetBrains Mono", monospace;
+        font-family: "SF Mono", "JetBrains Mono", Consolas, monospace;
+        font-size: 12px;
         line-height: 1.55;
         white-space: pre-wrap;
       }
 
-      .hint {
-        font-size: 12px;
-        color: var(--muted);
-        line-height: 1.5;
+      .log-line {
+        margin: 0 0 10px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
       }
 
-      .section-title {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        margin-bottom: 14px;
+      .log-line.ok {
+        color: #bdf5d6;
       }
 
-      .section-title p {
-        margin: 0;
-        font-size: 12px;
-        color: var(--muted);
+      .log-line.warn {
+        color: #ffe2ad;
       }
 
-      @media (max-width: 980px) {
-        .grid,
-        .editor-grid,
-        .quick-row {
+      .log-line.err {
+        color: #ffc7c2;
+      }
+
+      @media (max-width: 780px) {
+        .app {
+          width: min(100% - 16px, 1180px);
+          margin-top: 8px;
+        }
+
+        .fields,
+        .fields.three {
           grid-template-columns: 1fr;
         }
 
-        .log {
-          height: 420px;
+        .panel-head {
+          align-items: flex-start;
+          flex-direction: column;
         }
       }
     </style>
   </head>
   <body>
-    <main class="shell">
-      <section class="hero">
-        <h1>BlahajChat WebSocket 测试端</h1>
-        <p>
-          这个页面用于本地调试消息发送链路：先调用 <code>/auth/login</code> 获取
-          Access Token，再连接 <code>/ws/wslogin</code>，然后发送
-          <code>send</code> 帧或任意自定义帧。
-        </p>
-      </section>
+    <main class="app">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark">WS</div>
+          <div>
+            <h1>Blahaj WebSocket Tester</h1>
+            <div class="sub">按主链路顺序测试：登录、建会话、连接、发送、拉历史</div>
+          </div>
+        </div>
+        <div class="status-row">
+          <span class="pill" id="userPill">用户 <strong>未登录</strong></span>
+          <span class="pill" id="convPill">会话 <strong>未选择</strong></span>
+          <span class="pill" id="wsPill">WS <strong>未连接</strong></span>
+          <span class="pill" id="seqPill">Seq <strong>1</strong></span>
+        </div>
+      </header>
 
-      <section class="grid">
-        <aside class="stack">
-          <div class="card">
-            <div class="card-inner stack">
-              <h2>服务配置</h2>
+      <section class="flow">
+        <section class="panel">
+          <div class="panel-head">
+            <h2><span class="step">1</span>环境与登录</h2>
+            <div class="actions">
+              <button class="secondary" id="resetEnvBtn">重置环境</button>
+              <button class="secondary" id="meBtn">校验 Me</button>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div class="fields">
               <label>
                 HTTP Base URL
                 <input id="httpBase" placeholder="http://127.0.0.1:8080" />
@@ -273,224 +427,293 @@
                 WS URL
                 <input id="wsURL" placeholder="ws://127.0.0.1:8080/ws/wslogin" />
               </label>
-              <div class="hint">默认会基于当前页面地址自动填充，你也可以手动改成别的环境。</div>
             </div>
-          </div>
-
-          <div class="card">
-            <div class="card-inner stack">
-              <h2>登录拿 Token</h2>
+            <div class="fields">
               <label>
                 邮箱
-                <input id="email" type="email" placeholder="email@icloud.com" />
+                <input id="email" type="email" autocomplete="username" />
               </label>
               <label>
                 密码
-                <input id="password" type="password" placeholder="请输入密码" />
+                <input id="password" type="password" autocomplete="current-password" />
               </label>
-              <div class="actions">
-                <button id="loginBtn">登录</button>
-                <button id="meBtn" class="ghost">校验 Token</button>
-              </div>
+            </div>
+            <label>
+              Access Token
+              <textarea class="token" id="token" placeholder="登录后自动填入，也可手动粘贴"></textarea>
+            </label>
+            <div class="actions">
+              <button id="loginBtn">登录</button>
+              <button class="secondary" id="clearAuthBtn">清空 Token</button>
+              <label class="check">
+                <input id="autoConnect" type="checkbox" checked />
+                登录后自动连接 WS
+              </label>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2><span class="step">2</span>创建或选择会话</h2>
+            <button id="createC2CBtn">创建/获取 C2C</button>
+          </div>
+          <div class="panel-body">
+            <div class="fields">
               <label>
-                Access Token
-                <textarea id="token" placeholder="登录后会自动写入，也可以手动粘贴"></textarea>
+                Peer UID
+                <input id="peerUID" inputmode="numeric" placeholder="对方用户 ID" />
+              </label>
+              <label>
+                Conv ID
+                <input id="convID" placeholder="创建单聊后自动填入，也可手动粘贴" />
               </label>
             </div>
           </div>
+        </section>
 
-          <div class="card">
-            <div class="card-inner stack">
-              <h2>连接控制</h2>
-              <div class="status" id="connState">
-                <strong>状态：</strong>未连接
-              </div>
-              <div class="actions">
-                <button id="connectBtn">连接 WS</button>
-                <button id="disconnectBtn" class="secondary">断开连接</button>
-                <button id="pingBtn" class="ghost">发送 ping</button>
-              </div>
+        <section class="panel">
+          <div class="panel-head">
+            <h2><span class="step">3</span>WebSocket 连接</h2>
+            <button class="secondary" id="pingBtn">Ping</button>
+          </div>
+          <div class="panel-body">
+            <div class="actions">
+              <button id="connectBtn">连接 WS</button>
+              <button class="danger" id="disconnectBtn">断开</button>
             </div>
           </div>
-        </aside>
+        </section>
 
-        <section class="right">
-          <div class="card">
-            <div class="card-inner">
-              <div class="section-title">
-                <h2>快速发送 send 帧</h2>
-                <p>当前服务端未实现业务分发时，也能先观察连通性与原始收发。</p>
-              </div>
-              <div class="stack">
-                <div class="quick-row">
-                  <label>
-                    Conv ID
-                    <input id="convID" placeholder="例如 c2c_1_2" />
-                  </label>
-                  <label>
-                    Type
-                    <select id="msgType">
-                      <option value="text">text</option>
-                      <option value="image">image</option>
-                      <option value="file">file</option>
-                      <option value="audio">audio</option>
-                    </select>
-                  </label>
-                </div>
-                <label>
-                  文本消息
-                  <input id="textMessage" placeholder="输入文本消息，发送时会包装成 {&quot;text&quot;:&quot;...&quot;}" />
-                </label>
-                <label>
-                  Content JSON
-                  <textarea id="contentJSON" placeholder='{"text":"hello"}'></textarea>
-                </label>
-                <div class="actions">
-                  <button id="sendTextBtn">发送文本模板</button>
-                  <button id="sendSendBtn">发送自定义 send</button>
-                </div>
-                <div class="hint">
-                  “发送文本模板” 会自动生成 <code>client_msg_id</code> 和
-                  <code>seq</code>；“发送自定义 send” 则读取上面的 Conv ID / Type /
-                  Content JSON。
-                </div>
-              </div>
+        <section class="panel">
+          <div class="panel-head">
+            <h2><span class="step">4</span>发送消息</h2>
+            <button class="secondary" id="newClientMsgIDBtn">生成新 ClientMsgID</button>
+          </div>
+          <div class="panel-body">
+            <div class="fields three">
+              <label>
+                Type
+                <select id="msgType">
+                  <option value="text">text</option>
+                  <option value="image">image</option>
+                  <option value="file">file</option>
+                  <option value="audio">audio</option>
+                </select>
+              </label>
+              <label>
+                Client Msg ID
+                <input id="clientMsgID" />
+              </label>
+              <label>
+                文本
+                <input id="textMessage" placeholder="hello" />
+              </label>
+            </div>
+            <label>
+              Content JSON
+              <textarea class="content-box" id="contentJSON">{&#10;  "text": "hello"&#10;}</textarea>
+            </label>
+            <div class="actions">
+              <button id="sendTextBtn">发送文本</button>
+              <button class="secondary" id="sendCustomBtn">发送 JSON</button>
+              <button class="secondary" id="repeatLastBtn">重发上一帧</button>
+              <button class="secondary" id="fillRawBtn">填入原始帧</button>
             </div>
           </div>
+        </section>
 
-          <div class="card">
-            <div class="card-inner">
-              <div class="section-title">
-                <h2>原始帧</h2>
-                <p>可直接发送任意 op，用来测试 ping/read/recall 或非法输入。</p>
-              </div>
-              <div class="stack">
-                <label>
-                  Frame JSON
-                  <textarea id="rawFrame"></textarea>
-                </label>
-                <div class="actions">
-                  <button id="sendRawBtn">发送原始帧</button>
-                  <button id="resetRawBtn" class="ghost">重置模板</button>
-                </div>
-              </div>
+        <section class="panel">
+          <div class="panel-head">
+            <h2><span class="step">5</span>拉历史消息</h2>
+            <div class="actions">
+              <button id="loadHistoryBtn">拉最新</button>
+              <button class="secondary" id="loadOlderBtn">加载更早</button>
             </div>
           </div>
-
-          <div class="card">
-            <div class="card-inner">
-              <div class="section-title">
-                <h2>日志</h2>
-                <div class="actions">
-                  <button id="clearLogBtn" class="ghost">清空日志</button>
-                </div>
-              </div>
-              <div class="log" id="log"></div>
+          <div class="panel-body">
+            <div class="fields">
+              <label>
+                before_id
+                <input id="beforeID" inputmode="numeric" placeholder="0" />
+              </label>
+              <label>
+                limit
+                <input id="historyLimit" inputmode="numeric" value="20" />
+              </label>
             </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2><span class="step">6</span>消息流</h2>
+            <button class="secondary" id="clearTimelineBtn">清空消息流</button>
+          </div>
+          <div class="panel-body">
+            <div class="timeline" id="timeline"></div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2><span class="step">7</span>原始帧</h2>
+            <div class="actions">
+              <button class="secondary" id="resetRawBtn">生成模板</button>
+              <button class="secondary" id="copyRawBtn">复制</button>
+            </div>
+          </div>
+          <div class="panel-body">
+            <textarea class="raw-frame" id="rawFrame"></textarea>
+            <div class="actions">
+              <button id="sendRawBtn">发送原始帧</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2><span class="step">8</span>事件日志</h2>
+            <button class="secondary" id="clearLogBtn">清空日志</button>
+          </div>
+          <div class="panel-body">
+            <div class="log" id="log"></div>
           </div>
         </section>
       </section>
     </main>
 
     <script>
-      const storageKey = "blahaj_ws_tester_state";
+      const storageKey = "blahaj_ws_tester_v3";
       const state = {
         socket: null,
         seq: 1,
+        currentUserID: 0,
+        currentUser: null,
+        lastSendFrame: null,
+        nextBeforeID: 0,
+        messages: new Map(),
       };
 
       const el = {
         httpBase: document.getElementById("httpBase"),
         wsURL: document.getElementById("wsURL"),
+        token: document.getElementById("token"),
         email: document.getElementById("email"),
         password: document.getElementById("password"),
-        token: document.getElementById("token"),
-        connState: document.getElementById("connState"),
+        autoConnect: document.getElementById("autoConnect"),
+        peerUID: document.getElementById("peerUID"),
         convID: document.getElementById("convID"),
+        beforeID: document.getElementById("beforeID"),
+        historyLimit: document.getElementById("historyLimit"),
         msgType: document.getElementById("msgType"),
+        clientMsgID: document.getElementById("clientMsgID"),
         textMessage: document.getElementById("textMessage"),
         contentJSON: document.getElementById("contentJSON"),
         rawFrame: document.getElementById("rawFrame"),
+        timeline: document.getElementById("timeline"),
         log: document.getElementById("log"),
+        userPill: document.getElementById("userPill"),
+        convPill: document.getElementById("convPill"),
+        wsPill: document.getElementById("wsPill"),
+        seqPill: document.getElementById("seqPill"),
+        loadOlderBtn: document.getElementById("loadOlderBtn"),
       };
 
-      function now() {
+      function defaults() {
+        if (window.location.protocol === "http:" || window.location.protocol === "https:") {
+          const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+          return {
+            httpBase: `${window.location.protocol}//${window.location.host}`,
+            wsURL: `${wsProtocol}//${window.location.host}/ws/wslogin`,
+          };
+        }
+        return {
+          httpBase: "http://127.0.0.1:8080",
+          wsURL: "ws://127.0.0.1:8080/ws/wslogin",
+        };
+      }
+
+      function nowText() {
         return new Date().toLocaleTimeString("zh-CN", { hour12: false });
       }
 
-      function appendLog(kind, payload) {
-        const line = `[${now()}] ${kind}\n${typeof payload === "string" ? payload : JSON.stringify(payload, null, 2)}\n`;
-        el.log.textContent += `${line}\n`;
+      function pretty(value) {
+        if (typeof value === "string") {
+          return value;
+        }
+        return JSON.stringify(value, null, 2);
+      }
+
+      function log(kind, payload, tone = "") {
+        const node = document.createElement("div");
+        node.className = `log-line ${tone}`;
+        node.textContent = `[${nowText()}] ${kind}\n${pretty(payload)}`;
+        el.log.appendChild(node);
         el.log.scrollTop = el.log.scrollHeight;
       }
 
-      function setConnState(text, tone) {
-        const colorMap = {
-          ok: "var(--ok)",
-          warn: "var(--warn)",
-          err: "var(--err)",
-          normal: "var(--text)",
-        };
-        el.connState.innerHTML = `<strong>状态：</strong>${text}`;
-        el.connState.style.color = colorMap[tone] || colorMap.normal;
+      function setPill(node, label, value, tone = "") {
+        node.className = `pill ${tone}`;
+        node.innerHTML = `${label} <strong>${value}</strong>`;
       }
 
-      function deriveDefaults() {
-        const httpBase = `${window.location.protocol}//${window.location.host}`;
-        const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-        const wsURL = `${wsProtocol}//${window.location.host}/ws/wslogin`;
-        return { httpBase, wsURL };
-      }
-
-      function buildRawTemplate() {
-        const convID = el.convID.value.trim() || "conv-demo";
-        const text = el.textMessage.value.trim() || "hello";
-        const frame = {
-          op: "send",
-          seq: state.seq,
-          data: {
-            client_msg_id: crypto.randomUUID(),
-            conv_id: convID,
-            type: "text",
-            content: { text },
-          },
-        };
-        el.rawFrame.value = JSON.stringify(frame, null, 2);
+      function refreshPills() {
+        const userLabel = state.currentUserID ? String(state.currentUserID) : "未登录";
+        const convLabel = el.convID.value.trim() || "未选择";
+        const wsLabel = state.socket && state.socket.readyState === WebSocket.OPEN ? "已连接" : "未连接";
+        setPill(el.userPill, "用户", userLabel, state.currentUserID ? "ok" : "");
+        setPill(el.convPill, "会话", convLabel, convLabel === "未选择" ? "" : "ok");
+        setPill(el.wsPill, "WS", wsLabel, wsLabel === "已连接" ? "ok" : "");
+        setPill(el.seqPill, "Seq", String(state.seq), "");
       }
 
       function persist() {
         const snapshot = {
           httpBase: el.httpBase.value,
           wsURL: el.wsURL.value,
-          email: el.email.value,
           token: el.token.value,
+          email: el.email.value,
+          autoConnect: el.autoConnect.checked,
+          peerUID: el.peerUID.value,
           convID: el.convID.value,
+          beforeID: el.beforeID.value,
+          historyLimit: el.historyLimit.value,
           msgType: el.msgType.value,
+          clientMsgID: el.clientMsgID.value,
           textMessage: el.textMessage.value,
           contentJSON: el.contentJSON.value,
           rawFrame: el.rawFrame.value,
           seq: state.seq,
+          currentUserID: state.currentUserID,
         };
         localStorage.setItem(storageKey, JSON.stringify(snapshot));
+        refreshPills();
       }
 
       function restore() {
-        const defaults = deriveDefaults();
+        const base = defaults();
         const saved = JSON.parse(localStorage.getItem(storageKey) || "{}");
-        el.httpBase.value = saved.httpBase || defaults.httpBase;
-        el.wsURL.value = saved.wsURL || defaults.wsURL;
-        el.email.value = saved.email || "";
+        el.httpBase.value = saved.httpBase || base.httpBase;
+        el.wsURL.value = saved.wsURL || base.wsURL;
         el.token.value = saved.token || "";
+        el.email.value = saved.email || "";
+        el.autoConnect.checked = saved.autoConnect !== false;
+        el.peerUID.value = saved.peerUID || "";
         el.convID.value = saved.convID || "";
+        el.beforeID.value = saved.beforeID || "";
+        el.historyLimit.value = saved.historyLimit || "20";
         el.msgType.value = saved.msgType || "text";
+        el.clientMsgID.value = saved.clientMsgID || crypto.randomUUID();
         el.textMessage.value = saved.textMessage || "";
         el.contentJSON.value = saved.contentJSON || '{\n  "text": "hello"\n}';
+        el.rawFrame.value = saved.rawFrame || "";
         state.seq = Number(saved.seq) > 0 ? Number(saved.seq) : 1;
-        if (saved.rawFrame) {
-          el.rawFrame.value = saved.rawFrame;
-        } else {
-          buildRawTemplate();
+        state.currentUserID = Number(saved.currentUserID) || 0;
+        if (!el.rawFrame.value) {
+          fillRawTemplate();
         }
+        refreshPills();
       }
 
       function nextSeq() {
@@ -500,252 +723,423 @@
         return seq;
       }
 
-      function parseJSON(input, fieldName) {
+      function parseJSON(text, name) {
         try {
-          return JSON.parse(input);
+          return JSON.parse(text);
         } catch (error) {
-          throw new Error(`${fieldName} 不是合法 JSON: ${error.message}`);
+          throw new Error(`${name} 不是合法 JSON: ${error.message}`);
         }
       }
 
+      function httpBase() {
+        return el.httpBase.value.trim().replace(/\/$/, "");
+      }
+
+      function token() {
+        return el.token.value.trim();
+      }
+
+      async function api(path, options = {}) {
+        const headers = { ...(options.headers || {}) };
+        if (options.body && !headers["Content-Type"]) {
+          headers["Content-Type"] = "application/json";
+        }
+        if (token()) {
+          headers.Authorization = `Bearer ${token()}`;
+        }
+        const request = {
+          ...options,
+          headers,
+          body: options.body && typeof options.body !== "string" ? JSON.stringify(options.body) : options.body,
+        };
+        const resp = await fetch(`${httpBase()}${path}`, request);
+        const data = await resp.json().catch(() => ({}));
+        log(`HTTP ${options.method || "GET"} ${path} -> ${resp.status}`, data, resp.ok ? "ok" : "err");
+        if (!resp.ok) {
+          throw new Error(data.message || data.error || `HTTP ${resp.status}`);
+        }
+        return data;
+      }
+
+      function setCurrentUser(user) {
+        state.currentUser = user || null;
+        state.currentUserID = user && user.id ? Number(user.id) : 0;
+        persist();
+      }
+
       async function login() {
-        const base = el.httpBase.value.trim().replace(/\/$/, "");
         const body = {
           email: el.email.value.trim(),
           password: el.password.value,
         };
-        appendLog("HTTP 请求 /auth/login", body);
-        const resp = await fetch(`${base}/auth/login`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        const data = await resp.json().catch(() => ({}));
-        appendLog(`HTTP 响应 ${resp.status}`, data);
-        if (!resp.ok) {
-          throw new Error(data.message || `登录失败: HTTP ${resp.status}`);
-        }
-        const accessToken = data.data && data.data.token ? data.data.token.access_token : "";
+        log("HTTP POST /auth/login", { email: body.email });
+        const data = await api("/auth/login", { method: "POST", body });
+        const accessToken = data.data && data.data.token && data.data.token.access_token;
         if (!accessToken) {
-          throw new Error("登录成功，但响应里没有 access_token");
+          throw new Error("响应中没有 access_token");
         }
         el.token.value = accessToken;
-        persist();
+        setCurrentUser(data.data.user);
+        log("登录成功", data.data.user, "ok");
+        if (el.autoConnect.checked) {
+          connectWS();
+        }
       }
 
       async function fetchMe() {
-        const base = el.httpBase.value.trim().replace(/\/$/, "");
-        const token = el.token.value.trim();
-        appendLog("HTTP 请求 /api/me", { token_preview: token.slice(0, 24) + "..." });
-        const resp = await fetch(`${base}/api/me`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        const data = await resp.json().catch(() => ({}));
-        appendLog(`HTTP 响应 ${resp.status}`, data);
-        if (!resp.ok) {
-          throw new Error(data.message || data.error || `校验失败: HTTP ${resp.status}`);
+        const data = await api("/api/me");
+        setCurrentUser(data.data.user);
+        log("当前用户", data.data.user, "ok");
+      }
+
+      async function createC2C() {
+        const peerUID = Number(el.peerUID.value.trim());
+        if (!peerUID) {
+          throw new Error("Peer UID 不能为空");
         }
+        const data = await api("/api/conversations/c2c", {
+          method: "POST",
+          body: { peer_uid: peerUID },
+        });
+        const conv = data.data;
+        if (!conv || !conv.conv_id) {
+          throw new Error("响应中没有 conv_id");
+        }
+        el.convID.value = conv.conv_id;
+        state.nextBeforeID = 0;
+        persist();
+        log("会话已选择", conv, "ok");
+      }
+
+      function convID() {
+        const id = el.convID.value.trim();
+        if (!id) {
+          throw new Error("Conv ID 不能为空");
+        }
+        return id;
+      }
+
+      async function loadHistory(older) {
+        const limit = Number(el.historyLimit.value) || 20;
+        const beforeID = older ? state.nextBeforeID : Number(el.beforeID.value || 0);
+        const params = new URLSearchParams();
+        params.set("limit", String(limit));
+        if (beforeID > 0) {
+          params.set("before_id", String(beforeID));
+        }
+        const data = await api(`/api/conversations/${encodeURIComponent(convID())}/messages?${params}`);
+        const page = data.data || { items: [] };
+        if (!older) {
+          state.messages.clear();
+        }
+        (page.items || []).forEach((msg) => upsertMessage(msg, "history"));
+        state.nextBeforeID = Number(page.next_before_id) || 0;
+        el.beforeID.value = state.nextBeforeID ? String(state.nextBeforeID) : "";
+        el.loadOlderBtn.disabled = !page.has_more;
+        persist();
+        renderTimeline();
       }
 
       function connectWS() {
-        const token = el.token.value.trim();
-        if (!token) {
-          throw new Error("请先提供 access token");
+        if (!token()) {
+          throw new Error("Access Token 不能为空");
         }
         if (state.socket && state.socket.readyState === WebSocket.OPEN) {
-          throw new Error("当前已经连接");
+          log("WS 已连接", "跳过重复连接", "warn");
+          return;
         }
-        const rawURL = el.wsURL.value.trim();
-        const connector = rawURL.includes("?") ? "&" : "?";
-        const url = `${rawURL}${connector}token=${encodeURIComponent(token)}`;
-        appendLog("WS 连接", url);
-        const socket = new WebSocket(url);
+        const url = new URL(el.wsURL.value.trim());
+        url.searchParams.set("token", token());
+        const socket = new WebSocket(url.toString());
         state.socket = socket;
-        setConnState("连接中", "warn");
+        setPill(el.wsPill, "WS", "连接中", "warn");
+        log("WS connect", url.toString());
 
         socket.addEventListener("open", () => {
-          setConnState("已连接", "ok");
-          appendLog("WS open", url);
+          refreshPills();
+          log("WS open", url.toString(), "ok");
         });
 
         socket.addEventListener("message", (event) => {
           const text = typeof event.data === "string" ? event.data : "[binary]";
+          let frame = text;
           try {
-            appendLog("WS recv", JSON.parse(text));
+            frame = JSON.parse(text);
           } catch (_) {
-            appendLog("WS recv", text);
+            // keep raw text
           }
+          handleIncomingFrame(frame);
         });
 
         socket.addEventListener("close", (event) => {
-          setConnState(`已断开 code=${event.code} reason=${event.reason || "none"}`, "err");
-          appendLog("WS close", { code: event.code, reason: event.reason });
           state.socket = null;
+          refreshPills();
+          log("WS close", { code: event.code, reason: event.reason || "" }, "warn");
         });
 
         socket.addEventListener("error", () => {
-          setConnState("连接异常", "err");
-          appendLog("WS error", "浏览器报告连接异常，请看控制台或服务端日志");
+          setPill(el.wsPill, "WS", "异常", "err");
+          log("WS error", "浏览器报告连接异常", "err");
         });
       }
 
       function disconnectWS() {
-        if (!state.socket) {
-          return;
+        if (state.socket) {
+          state.socket.close(1000, "manual");
         }
-        state.socket.close(1000, "manual-close");
       }
 
-      function sendFrame(frame) {
+      function sendFrame(frame, rememberSend) {
         if (!state.socket || state.socket.readyState !== WebSocket.OPEN) {
           throw new Error("WebSocket 未连接");
         }
-        const text = JSON.stringify(frame);
-        state.socket.send(text);
-        appendLog("WS send", frame);
+        state.socket.send(JSON.stringify(frame));
+        if (rememberSend) {
+          state.lastSendFrame = JSON.parse(JSON.stringify(frame));
+        }
+        log("WS send", frame);
       }
 
-      function sendTextTemplate() {
-        const convID = el.convID.value.trim();
+      function textContent() {
         const text = el.textMessage.value.trim();
-        if (!convID) {
-          throw new Error("Conv ID 不能为空");
-        }
         if (!text) {
-          throw new Error("文本消息不能为空");
+          throw new Error("文本不能为空");
         }
-        const frame = {
-          op: "send",
-          seq: nextSeq(),
-          data: {
-            client_msg_id: crypto.randomUUID(),
-            conv_id: convID,
-            type: "text",
-            content: {
-              text,
-            },
-          },
-        };
-        sendFrame(frame);
-        buildRawTemplate();
+        return { text };
       }
 
-      function sendCustomSend() {
-        const convID = el.convID.value.trim();
-        if (!convID) {
-          throw new Error("Conv ID 不能为空");
-        }
-        const frame = {
+      function buildSendFrame(content) {
+        const clientMsgID = el.clientMsgID.value.trim() || crypto.randomUUID();
+        el.clientMsgID.value = clientMsgID;
+        return {
           op: "send",
           seq: nextSeq(),
           data: {
-            client_msg_id: crypto.randomUUID(),
-            conv_id: convID,
+            client_msg_id: clientMsgID,
+            conv_id: convID(),
             type: el.msgType.value,
-            content: parseJSON(el.contentJSON.value, "Content JSON"),
+            content,
           },
         };
-        sendFrame(frame);
-        buildRawTemplate();
       }
 
-      function sendRawFrame() {
-        const frame = parseJSON(el.rawFrame.value, "Frame JSON");
-        sendFrame(frame);
-      }
-
-      document.getElementById("loginBtn").addEventListener("click", async () => {
-        try {
-          await login();
-        } catch (error) {
-          appendLog("错误", error.message);
-        }
-      });
-
-      document.getElementById("meBtn").addEventListener("click", async () => {
-        try {
-          await fetchMe();
-        } catch (error) {
-          appendLog("错误", error.message);
-        }
-      });
-
-      document.getElementById("connectBtn").addEventListener("click", () => {
-        try {
-          connectWS();
-        } catch (error) {
-          appendLog("错误", error.message);
-        }
-      });
-
-      document.getElementById("disconnectBtn").addEventListener("click", () => {
-        disconnectWS();
-      });
-
-      document.getElementById("pingBtn").addEventListener("click", () => {
-        try {
-          sendFrame({ op: "ping", seq: nextSeq() });
-        } catch (error) {
-          appendLog("错误", error.message);
-        }
-      });
-
-      document.getElementById("sendTextBtn").addEventListener("click", () => {
-        try {
-          sendTextTemplate();
-        } catch (error) {
-          appendLog("错误", error.message);
-        }
-      });
-
-      document.getElementById("sendSendBtn").addEventListener("click", () => {
-        try {
-          sendCustomSend();
-        } catch (error) {
-          appendLog("错误", error.message);
-        }
-      });
-
-      document.getElementById("sendRawBtn").addEventListener("click", () => {
-        try {
-          sendRawFrame();
-        } catch (error) {
-          appendLog("错误", error.message);
-        }
-      });
-
-      document.getElementById("resetRawBtn").addEventListener("click", () => {
-        buildRawTemplate();
+      function sendText() {
+        el.msgType.value = "text";
+        const frame = buildSendFrame(textContent());
+        sendFrame(frame, true);
+        fillRawTemplate(frame);
         persist();
-      });
+      }
 
-      document.getElementById("clearLogBtn").addEventListener("click", () => {
-        el.log.textContent = "";
+      function sendCustom() {
+        const frame = buildSendFrame(parseJSON(el.contentJSON.value, "Content JSON"));
+        sendFrame(frame, true);
+        fillRawTemplate(frame);
+        persist();
+      }
+
+      function repeatLast() {
+        if (!state.lastSendFrame) {
+          throw new Error("还没有上一帧");
+        }
+        sendFrame(state.lastSendFrame, false);
+      }
+
+      function fillRawTemplate(frame) {
+        const nextFrame =
+          frame ||
+          {
+            op: "send",
+            seq: state.seq,
+            data: {
+              client_msg_id: el.clientMsgID.value.trim() || crypto.randomUUID(),
+              conv_id: el.convID.value.trim() || "conv_id",
+              type: el.msgType.value || "text",
+              content: parseJSON(el.contentJSON.value || '{"text":"hello"}', "Content JSON"),
+            },
+          };
+        el.rawFrame.value = JSON.stringify(nextFrame, null, 2);
+      }
+
+      function sendRaw() {
+        const frame = parseJSON(el.rawFrame.value, "Frame JSON");
+        const isSend = frame && frame.op === "send";
+        sendFrame(frame, isSend);
+      }
+
+      function handleIncomingFrame(frame) {
+        log("WS recv", frame, typeof frame === "object" && frame.op === "error" ? "err" : "ok");
+        if (!frame || typeof frame !== "object") {
+          return;
+        }
+        if (frame.op === "ackok") {
+          log("ACK", frame.data || {}, "ok");
+          return;
+        }
+        if (frame.op === "msg" && frame.data) {
+          upsertMessage(frame.data, "ws");
+          renderTimeline();
+        }
+      }
+
+      function upsertMessage(raw, origin) {
+        const key = raw.msg_id || raw.client_msg_id || `${origin}:${Date.now()}:${Math.random()}`;
+        const existing = state.messages.get(key) || {};
+        state.messages.set(key, {
+          ...existing,
+          ...raw,
+          origin,
+        });
+      }
+
+      function contentText(content) {
+        if (typeof content === "string") {
+          try {
+            content = JSON.parse(content);
+          } catch (_) {
+            return content;
+          }
+        }
+        if (content && typeof content === "object" && typeof content.text === "string") {
+          return content.text;
+        }
+        return JSON.stringify(content, null, 2);
+      }
+
+      function tsText(value) {
+        if (!value) {
+          return "";
+        }
+        return new Date(Number(value)).toLocaleString("zh-CN", { hour12: false });
+      }
+
+      function renderTimeline() {
+        const list = Array.from(state.messages.values()).sort((a, b) => {
+          const ta = Number(a.created_at || 0);
+          const tb = Number(b.created_at || 0);
+          if (ta !== tb) {
+            return ta - tb;
+          }
+          return Number(a.id || 0) - Number(b.id || 0);
+        });
+
+        el.timeline.innerHTML = "";
+        if (list.length === 0) {
+          const empty = document.createElement("div");
+          empty.className = "empty";
+          empty.textContent = "暂无消息";
+          el.timeline.appendChild(empty);
+          return;
+        }
+
+        list.forEach((msg) => {
+          const node = document.createElement("article");
+          const mine = state.currentUserID && Number(msg.from_uid) === Number(state.currentUserID);
+          node.className = `msg ${mine ? "mine" : ""}`;
+
+          const head = document.createElement("div");
+          head.className = "msg-head";
+          const left = document.createElement("span");
+          left.innerHTML = `<b>${mine ? "我" : `UID ${msg.from_uid || "-"}`}</b> · ${msg.type || "-"}`;
+          const right = document.createElement("span");
+          right.textContent = tsText(msg.created_at);
+          head.append(left, right);
+
+          const body = document.createElement("div");
+          body.className = "msg-content";
+          body.textContent = contentText(msg.content);
+
+          const meta = document.createElement("div");
+          meta.className = "msg-meta";
+          meta.textContent = `id=${msg.id || "-"} msg_id=${msg.msg_id || "-"} source=${msg.origin || "-"}`;
+
+          node.append(head, body, meta);
+          el.timeline.appendChild(node);
+        });
+        el.timeline.scrollTop = el.timeline.scrollHeight;
+      }
+
+      function newClientMsgID() {
+        el.clientMsgID.value = crypto.randomUUID();
+        persist();
+      }
+
+      function clearToken() {
+        el.token.value = "";
+        setCurrentUser(null);
+      }
+
+      function resetEnv() {
+        const base = defaults();
+        el.httpBase.value = base.httpBase;
+        el.wsURL.value = base.wsURL;
+        persist();
+      }
+
+      async function copyRaw() {
+        await navigator.clipboard.writeText(el.rawFrame.value);
+        log("复制原始帧", "已复制", "ok");
+      }
+
+      function bind(id, event, fn) {
+        document.getElementById(id).addEventListener(event, async () => {
+          try {
+            await fn();
+          } catch (error) {
+            log("错误", error.message, "err");
+          }
+        });
+      }
+
+      bind("resetEnvBtn", "click", resetEnv);
+      bind("loginBtn", "click", login);
+      bind("meBtn", "click", fetchMe);
+      bind("clearAuthBtn", "click", clearToken);
+      bind("createC2CBtn", "click", createC2C);
+      bind("loadHistoryBtn", "click", () => loadHistory(false));
+      bind("loadOlderBtn", "click", () => loadHistory(true));
+      bind("connectBtn", "click", connectWS);
+      bind("disconnectBtn", "click", disconnectWS);
+      bind("pingBtn", "click", () => sendFrame({ op: "ping", seq: nextSeq() }));
+      bind("newClientMsgIDBtn", "click", newClientMsgID);
+      bind("sendTextBtn", "click", sendText);
+      bind("sendCustomBtn", "click", sendCustom);
+      bind("repeatLastBtn", "click", repeatLast);
+      bind("fillRawBtn", "click", () => fillRawTemplate());
+      bind("resetRawBtn", "click", () => fillRawTemplate());
+      bind("sendRawBtn", "click", sendRaw);
+      bind("copyRawBtn", "click", copyRaw);
+      bind("clearTimelineBtn", "click", () => {
+        state.messages.clear();
+        renderTimeline();
+      });
+      bind("clearLogBtn", "click", () => {
+        el.log.innerHTML = "";
       });
 
       [
         el.httpBase,
         el.wsURL,
-        el.email,
         el.token,
+        el.email,
+        el.autoConnect,
+        el.peerUID,
         el.convID,
+        el.beforeID,
+        el.historyLimit,
         el.msgType,
+        el.clientMsgID,
         el.textMessage,
         el.contentJSON,
         el.rawFrame,
-      ].forEach((node) => {
-        node.addEventListener("input", persist);
-      });
+      ].forEach((node) => node.addEventListener("input", persist));
 
-      el.textMessage.addEventListener("input", buildRawTemplate);
-      el.convID.addEventListener("input", buildRawTemplate);
-
+      el.autoConnect.addEventListener("change", persist);
+      el.convID.addEventListener("input", refreshPills);
       restore();
-      setConnState("未连接", "normal");
-      appendLog("初始化", {
-        message: "页面已就绪，可先登录拿 token，再连接 WS。",
+      renderTimeline();
+      log("初始化", {
+        http_base: el.httpBase.value,
         ws_url: el.wsURL.value,
       });
     </script>
