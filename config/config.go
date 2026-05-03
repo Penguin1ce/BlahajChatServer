@@ -2,9 +2,13 @@ package config
 
 import (
 	"log"
+	"os"
+	"path/filepath"
 
 	"github.com/BurntSushi/toml"
 )
+
+const defaultConfigPath = "config/config.toml"
 
 type Server struct {
 	Port int    `toml:"port"`
@@ -49,6 +53,12 @@ type Log struct {
 	File   string `toml:"file"`
 }
 
+type Kafka struct {
+	Brokers []string `toml:"brokers"`
+	Topic   string   `toml:"topic"`
+	GroupID string   `toml:"group_id"`
+}
+
 type Config struct {
 	Server     `toml:"server"`
 	DB         `toml:"database"`
@@ -57,17 +67,42 @@ type Config struct {
 	MailConfig `toml:"mail"`
 	TestValues `toml:"test_values"`
 	Log        `toml:"log"`
+	Kafka      `toml:"kafka"`
 }
 
 var CFG Config
 
 func InitConfig() {
-	_, err := toml.DecodeFile("/Users/firefly/Developer/code/go/BlahajChatServer/config/config.toml", &CFG)
+	path := resolveConfigPath()
+
+	_, err := toml.DecodeFile(path, &CFG)
 	if err != nil {
-		log.Fatal("初始化环境失败 ", err)
+		log.Fatal("初始化环境失败 ", "path=", path, " err=", err)
 	}
 }
 
 func GetConfig() Config {
 	return CFG
+}
+
+func resolveConfigPath() string {
+	if path := os.Getenv("CONFIG_PATH"); path != "" {
+		return path
+	}
+
+	dir, err := os.Getwd()
+	if err != nil {
+		return defaultConfigPath
+	}
+	for {
+		path := filepath.Join(dir, defaultConfigPath)
+		if _, err := os.Stat(path); err == nil {
+			return path
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return defaultConfigPath
+		}
+		dir = parent
+	}
 }

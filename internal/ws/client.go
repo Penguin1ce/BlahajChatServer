@@ -6,6 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"BlahajChatServer/internal/bus"
 	"BlahajChatServer/internal/dao"
 	"BlahajChatServer/internal/service"
 	"BlahajChatServer/internal/zlog"
@@ -156,8 +157,13 @@ func (c *Client) dispatch(payload []byte) {
 			zlog.Errorf("WS msg 帧序列化失败 uid=%d conn=%s msg=%s err=%s", c.userID, c.connID, msg.MsgID, err.Error())
 			return
 		}
-		if !c.hub.Broadcast(&Envelope{Targets: members, Data: data}) {
-			zlog.Warnf("WS msg 广播失败 uid=%d conn=%s msg=%s targets=%d", c.userID, c.connID, msg.MsgID, len(members))
+		if err := bus.Global.Publish(ctx, bus.ChatEvent{
+			MsgID:   msg.MsgID,
+			ConvID:  d.ConvID,
+			Targets: members,
+			Frame:   data,
+		}); err != nil {
+			zlog.Warnf("WS msg publish 失败 uid=%d conn=%s msg=%s targets=%d err=%s", c.userID, c.connID, msg.MsgID, len(members), err.Error())
 		}
 
 	default:
