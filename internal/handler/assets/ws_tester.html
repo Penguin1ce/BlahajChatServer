@@ -529,6 +529,7 @@
             <div class="actions">
               <button id="loadHistoryBtn">拉最新</button>
               <button class="secondary" id="loadOlderBtn">加载更早</button>
+              <button class="secondary" id="markReadBtn">已读上报</button>
             </div>
           </div>
           <div class="panel-body">
@@ -967,6 +968,39 @@
         sendFrame(frame, isSend);
       }
 
+      function latestVisibleMessage() {
+        const id = convID();
+        const list = Array.from(state.messages.values())
+          .filter((msg) => msg.conv_id === id && msg.msg_id)
+          .sort((a, b) => {
+            const ta = Number(a.created_at || 0);
+            const tb = Number(b.created_at || 0);
+            if (ta !== tb) {
+              return tb - ta;
+            }
+            return Number(b.id || 0) - Number(a.id || 0);
+          });
+        if (!list.length) {
+          throw new Error("当前会话没有可上报已读的消息，请先拉历史或接收 msg");
+        }
+        return list[0];
+      }
+
+      function markRead() {
+        const msg = latestVisibleMessage();
+        const frame = {
+          op: "read",
+          seq: nextSeq(),
+          data: {
+            conv_id: convID(),
+            msg_id: msg.msg_id,
+          },
+        };
+        sendFrame(frame, false);
+        fillRawTemplate(frame);
+        log("已读上报", { conv_id: frame.data.conv_id, msg_id: frame.data.msg_id }, "ok");
+      }
+
       function handleIncomingFrame(frame) {
         log("WS recv", frame, typeof frame === "object" && frame.op === "error" ? "err" : "ok");
         if (!frame || typeof frame !== "object") {
@@ -1098,6 +1132,7 @@
       bind("createC2CBtn", "click", createC2C);
       bind("loadHistoryBtn", "click", () => loadHistory(false));
       bind("loadOlderBtn", "click", () => loadHistory(true));
+      bind("markReadBtn", "click", markRead);
       bind("connectBtn", "click", connectWS);
       bind("disconnectBtn", "click", disconnectWS);
       bind("pingBtn", "click", () => sendFrame({ op: "ping", seq: nextSeq() }));
