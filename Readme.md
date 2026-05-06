@@ -266,11 +266,20 @@ GET /ws/wslogin?token=<access_token>
 | ↓ 下行 | `pong`   | ✅ 已实现 | 无                                                                             | `ping` 的回应                  |
 | ↓ 下行 | `ackok`  | ✅ 已实现 | `{msg_id, client_msg_id, conv_id, ts}`                                         | `send` 成功回执                |
 | ↓ 下行 | `error`  | ✅ 已实现 | `{code, message}`                                                              | 上一帧处理失败                 |
-| ↓ 下行 | `msg`    | 🚧 规划中 | `{msg_id, conv_id, from_uid, type, content, reply_to?, mentions?, created_at}` | 推送新消息（多端同步）         |
+| ↓ 下行 | `msg`    | ✅ 已实现 | `{msg_id, conv_id, from_uid, type, content, reply_to?, mentions?, created_at}` | 推送新消息（多端同步）         |
 | ↓ 下行 | `notify` | 🚧 规划中 | `{conv_id, reader_uid, msg_id}`                                                | 已读回执通知                   |
 | ↓ 下行 | `kick`   | 🚧 规划中 | -                                                                              | 服务端主动踢下线（重复登录等） |
 
-> 当前为协议骨架阶段：`send` 暂时只做格式校验后回写死的 `ackok`，**不落库、不 fan-out**。`recall` / `read` / `typing` 等帧目前会被回 `error{code:"unknown_op"}`，第二阶段接入 service 层后逐步打开。
+> 当前已经打通 `send -> ackok -> Kafka fanout -> msg` 主链路。`send` 会走 `service.HandleSend` 做幂等、成员校验、消息落库、会话最后消息更新和未读数更新；`ack` / `read` / `recall` / `typing` 等上行帧还没有接入 dispatch，目前会返回 `error{code:"unknown_op"}`。
+
+### `send` / `msg` 行为说明
+
+- `send` 成功后，服务端先返回 `ackok` 给当前发送连接。`ackok` 只表示这次发送请求已经被服务端处理成功，当前实现里也就是消息已经落到 MySQL。
+- `client_msg_id` 由客户端生成（建议 UUID v4），用于本地"发送中"草稿匹配，也用于服务端 Redis `SETNX` 幂等去重。重复发送命中幂等时，只会补回当前连接的 `ackok`，不会再次 fan-out `msg`。
+- 新消息落库成功后，WS 层会查询会话成员，生成 `ChatEvent{MsgID, ConvID, Targets, Frame}`，再调用 `bus.Global.Publish` 写入 Kafka。
+- Kafka 只承担在线 fanout 事件通道，不是消息事实源；事实源仍是 MySQL 的 `messages` 表。Kafka publish 失败时，消息可能已经落库，客户端可通过历史消息接口补偿。
+- 每个服务实例的 Kafka consumer 都会消费事件，并只向本机 `Hub` 上在线的目标用户连接投递 `msg`。不在线的用户不会被 Kafka "补发"，上线后走历史消息接口。
+- `Targets` 包含会话所有成员，所以发送者自己的其它端会收到 `msg`；当前发送连接也会收到一份 `msg`。客户端需要按 `msg_id` 或 `client_msg_id` 做本地去重和状态合并。
 
 ### 帧示例
 
@@ -310,9 +319,22 @@ GET /ws/wslogin?token=<access_token>
     "ts": 1745673600123
   }
 }
+
+// ↓ 下行（fanout 后，会话成员的在线端都会收到；发送端也可能收到一份）
+{
+  "op": "msg",
+  "data": {
+    "msg_id": "<服务端生成的 uuid>",
+    "conv_id": "conv-demo",
+    "from_uid": 1,
+    "type": "text",
+    "content": { "text": "你好，这是一条测试消息" },
+    "created_at": 1745673600123
+  }
+}
 ```
 
-`client_msg_id` 由客户端生成（建议 UUID v4），用于：本地"发送中"草稿匹配 + 服务端幂等去重（第二阶段接 Redis）。
+`ackok` 会带回原始 `seq`，用于和本次 `send` 请求配对；`msg` 是会话级新消息事件，不绑定发送请求的 `seq`。
 
 **错误回包**
 
@@ -321,7 +343,7 @@ GET /ws/wslogin?token=<access_token>
   "op": "error",
   "seq": 3,
   "data": {
-    "code": "bad_frame | bad_data | unknown_op",
+    "code": "bad_frame | bad_data | unknown_op | send_failed",
     "message": "<错误描述>"
   }
 }
@@ -332,6 +354,7 @@ GET /ws/wslogin?token=<access_token>
 | `bad_frame`  | 外层 Frame JSON 解析失败               |
 | `bad_data`   | `data` 内层 payload 不符合 op 的结构   |
 | `unknown_op` | 服务端不识别该 op（版本不匹配 / 拼错） |
+| `send_failed` | `send` 业务处理失败，例如参数非法、非会话成员、落库失败 |
 
 ### 连接生命周期约定
 

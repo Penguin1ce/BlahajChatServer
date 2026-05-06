@@ -38,6 +38,9 @@ func IncrUnreadExcept(ctx context.Context, convID string, senderUID uint64) erro
 }
 
 func IncrUnreadExceptTx(ctx context.Context, tx *gorm.DB, convID string, senderUID uint64) error {
+	// 注意，"未读数 + 1"这个操作是并发安全的
+	// 它是在数据库里直接执行：unread = unread + 1
+	// 所以多个请求并发更新同一行时，MySQL/InnoDB 会对被更新的行加锁，更新会排队执行。
 	return useDB(ctx, tx).
 		Model(&model.UserConv{}).
 		Where("conv_id = ? AND uid <> ?", convID, senderUID).

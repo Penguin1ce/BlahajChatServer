@@ -5,7 +5,7 @@
 
 ## 一、为什么要上 Kafka
 
-**问题背景**：WS 消息扇出原本是 `service.HandleSend → hub.Broadcast`，`Hub` 是进程内的 map，**只能给本实例的 WS 连接发消息**。一旦多实例部署，目标用户在另一台机器就收不到。
+**问题背景**：如果 WS 消息扇出只在进程内调用 `Hub.Broadcast`，`Hub` 这个内存 map **只能给本实例的 WS 连接发消息**。一旦多实例部署，目标用户在另一台机器就收不到。
 
 **Kafka 在本项目里解决的事**：
 1. **跨实例消息扇出**：所有实例都能拿到所有事件，自己决定要不要 fan-out 给本地连接
@@ -23,16 +23,27 @@ internal/ws/client.go: dispatch OpSend
 service.HandleSend
    ├─ Redis SETNX 幂等（按 client_msg_id）
    ├─ MySQL 事务：messages + conversation.last_msg + user_conv.unread
-   └─ 返回 MsgData
+   └─ 返回 MsgData, created
+   │
+   ├─ 当前发送连接先收到 ackok（只表示服务端已处理/已落库）
+   │
+   ├─ created=false：重复 send，只补 ackok，流程结束
+   │
+   └─ created=true：继续发布新消息事件
+   ▼
+dao.ListMembers(conv_id)
+   │
+   ▼
+marshalFrame(OpMsg, MsgData)
    │
    ▼
 internal/ws/client.go: bus.Global.Publish(ChatEvent)
    │
    ▼
 internal/bus/kafka.go: KafkaBus.Publish
-   │
-   ▼  Key=ConvID, Value=JSON(ChatEvent), acks=all
-Kafka topic: chat.events
+   │  Key=ConvID, Value=JSON(ChatEvent), RequiredAcks=all
+   ▼
+Kafka topic: 配置值（默认 chat.events）
    │
    ▼  每实例独立 group：blahaj-ws-${HOSTNAME}
 KafkaBus consumer goroutine（每实例一份，全量消费）
@@ -43,6 +54,8 @@ hub.Broadcast(Targets, Frame)
    ▼
 本地在线 WS 连接（不在线的目标自动 drop）
 ```
+
+`ChatEvent` 里带的是发送时刻预计算好的 `Targets` 和已经序列化好的 `OpMsg` Frame。Kafka 下游不再查会话成员，也不负责补离线消息；离线和补偿靠 MySQL 历史消息接口。
 
 ## 三、用到的 Kafka 特性
 
@@ -69,7 +82,7 @@ return k.writer.WriteMessages(ctx, kafka.Message{
 RequiredAcks: kafka.RequireAll,
 ```
 
-**目的**：Producer 等所有 ISR 副本都落盘才返回成功。单 broker 故障也不丢消息。
+**目的**：Producer 等 ISR 副本确认后才返回成功，适合以后多 broker 部署时提高事件写入可靠性。当前 `docker-compose.yml` 是单 broker、replication factor = 1，所以 `RequireAll` 实际上只能等当前 broker 确认；broker 整体故障时服务会不可用，不能理解成单节点也能抗 broker 丢失。
 
 ### 3. `Balancer = &kafka.Hash{}`
 
@@ -88,7 +101,7 @@ if cfg.GroupID == "" {
 }
 ```
 
-**目的**：多实例部署时，**每个实例都消费全量消息**，由实例自己判断本地 Hub 有没有目标连接。
+**目的**：多实例部署时，**每个实例都消费全量消息**，由实例自己判断本地 Hub 有没有目标连接。`group_id` 留空会按机器名生成；如果手动配置，多个 WS 实例不要配置成同一个 group，否则就会变成 Kafka 的共享消费。
 
 **对比方案（共享 Group）的问题**：
 - 共享 Group 时 Kafka 会在实例间分配 partition
@@ -136,20 +149,31 @@ if err := json.Unmarshal(m.Value, &e); err != nil {
 
 **目的**：本地开发用 `apache/kafka:3.8.0` 单节点 KRaft 模式，不依赖 ZooKeeper，启动快、配置简单。
 
-## 四、投递语义：at-least-once
+## 四、ack、fanout 与投递语义
 
-**保证什么**：
-- `service.HandleSend` 落库成功 → bus.Publish → KafkaBus 写入成功 → 一定会送达 KafkaBus consumer → 一定调用本地 fan-out
+### 1. `ackok` 的含义
 
-**可能重复的场景**：
-- 实例重启：从 committed offset 重读 → 部分事件被本实例处理两次
-- KafkaBus.Publish 网络抖动重试 → 同一事件可能被写入 Kafka 两次
+`ackok` 是 `Client.dispatch` 在 `service.HandleSend` 成功返回后立刻发给当前发送连接的回执。它表示：
 
-**为什么用户感知不到重复**：
-1. **Service 层幂等**：`service.HandleSend` 用 `client_msg_id + Redis SETNX` 在落库前就拦截了重复发送
-2. **客户端幂等**：前端按 `msg_id` 去重，一个 msg_id 只渲染一次
+- 参数校验通过
+- 发送者是会话成员
+- 消息已经写入 MySQL `messages`
+- `conversations.last_msg_id/last_msg_at` 和其他成员 `user_conv.unread` 已经在同一个事务里更新
 
-链路上层层做幂等，所以 Kafka 这里允许 at-least-once，不必上 exactly-once。
+它不表示 Kafka publish 已经成功，也不表示其它在线端已经收到 `msg`。
+
+### 2. Kafka fanout 的语义
+
+`bus.Global.Publish` 发生在落库和 `ackok` 之后。新消息会写入 Kafka，再由每个实例的 `KafkaBus.Run` consumer 拉回并调用本机 `Hub.Broadcast`。
+
+如果 Kafka publish 成功，consumer 侧是偏 at-least-once 的：fan-out 后才 commit offset，实例在 fan-out 后、commit 前崩溃，重启后可能再次处理同一条 `ChatEvent`。Kafka 事件重复时，服务端 consumer 当前不去重，客户端需要按 `msg_id` 去重。
+
+如果 Kafka publish 失败，消息可能已经落库且发送端已经收到 `ackok`，但在线推送可能缺失。当前没有引入 Outbox，设计上接受这个 best-effort 在线推窗口；客户端后续通过历史消息接口补齐。
+
+### 3. 幂等边界
+
+- **重复 send 幂等**：`service.HandleSend` 用 `client_msg_id + Redis SETNX` 在落库前拦截重复发送；命中幂等时只补 `ackok`，不会再次发布 `ChatEvent`。
+- **重复 fanout 幂等**：Kafka/consumer 层可能重复投递同一个 `msg_id` 的 `msg`，客户端按 `msg_id` 或 `client_msg_id` 合并，避免重复渲染。
 
 ## 五、有意没做的事
 

@@ -2,7 +2,7 @@
 
 本文记录用户从 WebSocket 发送消息后，当前后端的处理逻辑和函数调用顺序。
 
-当前版本已经把“消息扇出”从 `client.go` 里直接调用 `Hub.Broadcast`，改成了通过 `bus.Global.Publish` 发布 `ChatEvent`。运行时固定使用 `KafkaBus`：先写入 Kafka，再由本实例 consumer 消费后扇出到本机 `Hub`。
+当前版本已经把“消息扇出”从 `client.go` 里直接调用 `Hub.Broadcast`，改成了通过 `bus.Global.Publish` 发布 `ChatEvent`。运行时固定使用 `KafkaBus`：先写入 Kafka，再由每个服务实例自己的 consumer 消费事件，最后只扇出到各自本机 `Hub` 上的在线连接。
 
 ## 总览
 
@@ -26,7 +26,7 @@ Client.readPump
 
 ```text
 bus.KafkaBus.Publish
-→ Kafka Writer 写入 chat.events
+→ Kafka Writer 写入配置的 topic（默认 chat.events）
 → KafkaBus.Run consumer FetchMessage
 → 反序列化 ChatEvent
 → fanout 回调
@@ -57,12 +57,17 @@ fanout := func(_ context.Context, e bus.ChatEvent) error {
 }
 ```
 
-然后固定使用 `KafkaBus`：
+然后固定初始化 `KafkaBus`：
 
 ```go
-kbus, err := bus.NewKafka(..., fanout)
-kbus.Run(context.Background())
-bus.Global = kbus
+if err := bus.InitKafka(context.Background(), bus.KafkaConfig{
+    Brokers: config.CFG.Kafka.Brokers,
+    Topic:   config.CFG.Kafka.Topic,
+    GroupID: config.CFG.Kafka.GroupID,
+}, fanout); err != nil {
+    zlog.Fatal("KafkaBus 初始化失败", "err", err)
+}
+defer bus.CloseGlobal()
 ```
 
 所以 `client.go` 不需要关心 Kafka 细节，只需要调用：
@@ -188,7 +193,7 @@ c.sendFrame(OpAckOK, frame.Seq, AckOKData{
 })
 ```
 
-`ackok` 只代表“服务端已经处理并落库了这次发送请求”，只发给当前发送连接。
+`ackok` 只代表“服务端已经处理并落库了这次发送请求”，只发给当前发送连接。它不代表 Kafka fanout 已经成功，也不代表其它在线端已经收到 `msg`。
 
 14. 如果 `created=false`，说明这是重复发送，只回 `ackok`，流程结束。
 
@@ -217,7 +222,7 @@ err := bus.Global.Publish(ctx, bus.ChatEvent{
 })
 ```
 
-从这里开始，事件进入 KafkaBus 扇出流程。
+从这里开始，事件进入 KafkaBus 扇出流程。这里的 `Targets` 是发送时刻查出的会话成员快照，下游不再重新查成员列表。
 
 ## KafkaBus 扇出流程
 
@@ -231,7 +236,7 @@ k.writer.WriteMessages(ctx, kafka.Message{
 })
 ```
 
-Kafka message 的 key 使用 `ConvID`，这样同一个会话的事件会进入同一个分区，便于保持会话内顺序。
+Kafka message 的 key 使用 `ConvID`，writer 配置了 `kafka.Hash` balancer。这样同一个会话的事件会进入同一个分区，便于保持会话内顺序。
 
 `KafkaBus.Run` 启动的 consumer goroutine 会持续拉取事件：
 
@@ -246,7 +251,7 @@ var e ChatEvent
 json.Unmarshal(m.Value, &e)
 ```
 
-然后调用同一个 `fanout` 回调，进入本机 Hub：
+然后调用启动时传入的 `fanout` 回调，进入本机 Hub：
 
 ```go
 k.onEvent(ctx, e)
@@ -258,20 +263,23 @@ k.onEvent(ctx, e)
 k.reader.CommitMessages(ctx, m)
 ```
 
-所以 Kafka 当前承担的是“在线消息扇出事件通道”，不是消息事实源。消息事实源仍然是 MySQL 的 `messages` 表。
+每个服务实例都应该使用独立的 consumer group（默认 `blahaj-ws-${HOSTNAME}`）。这样所有实例都能消费同一条 `ChatEvent`，但每个实例只投递自己本机 `Hub` 上存在的在线连接。
+
+所以 Kafka 当前承担的是“在线消息扇出事件通道”，不是消息事实源。消息事实源仍然是 MySQL 的 `messages` 表；离线用户和 Kafka publish 失败后的补偿都依赖历史消息接口。
 
 ## 最终效果
 
 - 发送者当前连接收到 `ackok`
 - 新消息会发布一条 `ChatEvent`
-- 事件先进入 Kafka，再由 consumer 拉回本进程 Hub
+- 事件先进入 Kafka，再由各实例 consumer 拉回本机 Hub
 - 会话内所有在线成员收到 `msg`
-- 发送者其他端也收到 `msg`
+- 发送者其它端也收到 `msg`
 - 当前发送连接也会收到 `msg`，客户端需要用 `msg_id` 或 `client_msg_id` 做本地去重
 
 ## 当前边界
 
 - Kafka 只负责在线扇出，不负责消息落库
+- `ackok` 表示落库成功，不等于 fanout 成功
 - Kafka publish 失败时，消息可能已经落库；客户端可以通过历史消息接口补偿
 - 当前暂未引入 Outbox，因此还不保证“消息落库成功后 Kafka 事件一定最终发出”
 - `ChatEvent.Targets` 是发送时的成员快照，下游不再重新查询成员列表
