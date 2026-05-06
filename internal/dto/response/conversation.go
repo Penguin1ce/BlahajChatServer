@@ -30,3 +30,17 @@ type MessageListResp struct {
 	NextBeforeID uint64        `json:"next_before_id,omitempty"`
 	HasMore      bool          `json:"has_more"`
 }
+type ConversationListResp struct {
+	ConvID        string `json:"conv_id"`
+	Type          string `json:"type"`
+	PeerKey       string `json:"peer_key,omitempty"`
+	Name          string `json:"name,omitempty"`
+	Avatar        string `json:"avatar,omitempty"`
+	OwnerID       uint64 `json:"owner_id,omitempty"`
+	LastMsgID     string `json:"last_msg_id,omitempty"`
+	LastMsgAt     int64  `json:"last_msg_at"`
+	LastReadMsgID string `json:"last_read_msg_id"`
+	Unread        uint32 `json:"unread"`
+	Pinned        bool   `json:"pinned"`
+	Muted         bool   `json:"muted"`
+}

@@ -25,6 +25,23 @@ func GetConvByID(ctx context.Context, convID string) (*model.Conversation, error
 	return &conv, nil
 }
 
+func GetConvsByIDs(ctx context.Context, convIDs []string) (map[string]model.Conversation, error) {
+	if len(convIDs) == 0 {
+		return map[string]model.Conversation{}, nil
+	}
+
+	var convs []model.Conversation
+	if err := DB.WithContext(ctx).Where("conv_id IN ?", convIDs).Find(&convs).Error; err != nil {
+		return nil, err
+	}
+
+	convByID := make(map[string]model.Conversation, len(convs))
+	for _, conv := range convs {
+		convByID[conv.ConvId] = conv
+	}
+	return convByID, nil
+}
+
 func GetOrCreateC2C(ctx context.Context, uidA, uidB uint64) (*model.Conversation, error) {
 	if uidA == 0 || uidB == 0 || uidA == uidB {
 		return nil, errs.ErrFoundC2CPair

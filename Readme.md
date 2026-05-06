@@ -212,6 +212,83 @@ Authorization: Bearer <access_token>
 ws://host/ws/wslogin?token=<access_token>
 ```
 
+## HTTP 会话接口
+
+这些接口都需要携带：
+
+```
+Authorization: Bearer <access_token>
+```
+
+### 创建或获取单聊会话
+
+```
+POST /api/conversations/c2c
+```
+
+**请求体**
+
+| 字段       | 类型   | 必填 | 说明       |
+| ---------- | ------ | ---- | ---------- |
+| `peer_uid` | number | 是   | 对方用户 ID |
+
+```json
+{
+    "peer_uid": 2
+}
+```
+
+成功后返回会话基础信息，`conv_id` 后续用于发消息、拉历史和拉会话列表展示。
+
+### 拉取当前用户会话列表
+
+```
+GET /api/conversations
+```
+
+返回当前登录用户加入的会话列表。会话列表由 `conversations` 和 `user_conv` 组合得到：
+
+- `conversations` 提供会话公共信息：`conv_id`、`type`、`peer_key`、`name`、`avatar`、`owner_id`、`last_msg_id`、`last_msg_at`
+- `user_conv` 提供当前用户自己的状态：`last_read_msg_id`、`unread`、`pinned`、`muted`
+- 排序规则：`pinned DESC, last_msg_at DESC`
+
+**成功响应 `200`**
+
+```json
+{
+    "code": 200,
+    "message": "success",
+    "data": [
+        {
+            "conv_id": "5c241bb7-224d-4bf7-8fe2-6e612fe6083e",
+            "type": "c2c",
+            "peer_key": "1_2",
+            "last_msg_id": "f419b00a-7739-4cbf-ba81-a2d4b80f704b",
+            "last_msg_at": 1777990262926,
+            "last_read_msg_id": "",
+            "unread": 2,
+            "pinned": false,
+            "muted": false
+        }
+    ]
+}
+```
+
+> 这里的 `unread` 是当前登录用户视角下的未读数；同一个会话里，不同用户看到的 `unread`、`pinned`、`muted` 可以不同。
+
+### 拉取历史消息
+
+```
+GET /api/conversations/:id/messages?before_id=0&limit=20
+```
+
+| Query       | 类型   | 必填 | 说明                                          |
+| ----------- | ------ | ---- | --------------------------------------------- |
+| `before_id` | number | 否   | 游标；传 `0` 表示拉最新一页                    |
+| `limit`     | number | 否   | 每页数量，默认 `20`，最大 `100`                |
+
+服务端会先校验当前用户是否属于该会话；不是成员时返回 `403`。
+
 ## WebSocket 接口
 
 聊天链路走 WS 长连接，连接成功后通过 JSON Frame 收发业务消息。HTTP 仅承担登录、拉历史、上传等短连接场景。

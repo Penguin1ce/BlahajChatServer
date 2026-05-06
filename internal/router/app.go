@@ -46,6 +46,7 @@ func Init() {
 	api := GE.Group("/api", middleware.JWTAuth())
 	{
 		api.GET("/me", handler.Me)
+		api.GET("conversations", handler.GetConversationList)
 		api.POST("conversations/c2c", handler.GetOrCreateC2C)
 		api.GET("conversations/:id/messages", handler.GetHistoryMessage)
 	}

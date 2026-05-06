@@ -64,3 +64,12 @@ func UpdateLastRead(ctx context.Context, uid uint64, convID, msgID string) error
 	}
 	return nil
 }
+
+func GetUserConvsByUID(ctx context.Context, uid uint64) ([]model.UserConv, error) {
+	var resp []model.UserConv
+	err := DB.WithContext(ctx).Where("uid = ?", uid).Find(&resp).Error
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}

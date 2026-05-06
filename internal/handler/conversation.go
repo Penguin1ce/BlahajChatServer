@@ -96,6 +96,23 @@ func GetHistoryMessage(c *gin.Context) {
 	response.OK(c, msgs)
 }
 
+func GetConversationList(c *gin.Context) {
+	uid, exists := c.Get(consts.CtxUserID)
+	userID, ok := uid.(uint64)
+	if !exists || !ok || userID == 0 {
+		response.Fail(c, http.StatusUnauthorized, consts.UserNotLogin)
+		return
+	}
+	// 进入service获取uid的ConversationList
+	conversations, err := service.GetConversationListByID(c.Request.Context(), userID)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.OK(c, conversations)
+}
+
 func parseUintQuery(c *gin.Context, key string, defaultValue uint64) (uint64, error) {
 	raw := c.Query(key)
 	if raw == "" {
