@@ -37,8 +37,8 @@ dao.ListMembers(conv_id)
 marshalFrame(OpMsg, MsgData)
    │
    ▼
-internal/ws/client.go: bus.Global.Publish(ChatEvent)
-   │
+internal/ws/client.go: c.hub.Publish(ChatEvent)
+   │  Hub.Publish 委托给它持有的 *KafkaBus
    ▼
 internal/bus/kafka.go: KafkaBus.Publish
    │  Key=ConvID, Value=JSON(ChatEvent), RequiredAcks=all
@@ -164,7 +164,7 @@ if err := json.Unmarshal(m.Value, &e); err != nil {
 
 ### 2. Kafka fanout 的语义
 
-`bus.Global.Publish` 发生在落库和 `ackok` 之后。新消息会写入 Kafka，再由每个实例的 `KafkaBus.Run` consumer 拉回并调用本机 `Hub.Broadcast`。
+`(*ws.Hub).Publish` 发生在落库和 `ackok` 之后，内部调用 Hub 持有的 `KafkaBus.Publish` 把事件写入 Kafka，再由每个实例的 `KafkaBus.Run` consumer 拉回并通过 `EventHandler` 回调进入 `Hub.HandleEvent → Hub.Broadcast`。
 
 如果 Kafka publish 成功，consumer 侧是偏 at-least-once 的：fan-out 后才 commit offset，实例在 fan-out 后、commit 前崩溃，重启后可能再次处理同一条 `ChatEvent`。Kafka 事件重复时，服务端 consumer 当前不去重，客户端需要按 `msg_id` 去重。
 

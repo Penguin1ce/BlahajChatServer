@@ -1,8 +1,11 @@
 package ws
 
 import (
+	"context"
+	"errors"
 	"sync"
 
+	"BlahajChatServer/internal/bus"
 	"BlahajChatServer/internal/zlog"
 )
 
@@ -19,6 +22,9 @@ type Hub struct {
 	unregister chan *Client
 	broadcast  chan *Envelope
 	mu         sync.RWMutex
+
+	// bus 是跨实例扇出通道。Hub 同时充当生产者（Publish）与消费者（HandleEvent）。
+	bus *bus.KafkaBus
 }
 
 // GlobalHub 由 InitHub 赋值，handler / service 层共享一个实例。
@@ -33,10 +39,40 @@ func NewHub() *Hub {
 	}
 }
 
-// InitHub 在 main 里调用：初始化全局 Hub 并起一个 Run goroutine。
-func InitHub() {
-	GlobalHub = NewHub()
-	go GlobalHub.Run()
+// InitHub 在 main 里调用：初始化全局 Hub，并装配跨实例扇出通道（KafkaBus）。
+// Hub.HandleEvent 作为消费回调注入 KafkaBus，从而把"出 Kafka → 进本地 Hub"这条线收敛在 ws 包内。
+func InitHub(parent context.Context, kafkaCfg bus.KafkaConfig) error {
+	h := NewHub()
+	go h.Run()
+	kbus, err := bus.InitKafka(parent, kafkaCfg, h.HandleEvent)
+	if err != nil {
+		return err
+	}
+	h.bus = kbus
+	GlobalHub = h
+	return nil
+}
+
+// CloseHub 关闭全局 Hub 持有的扇出通道。重复调用安全。
+func CloseHub() error {
+	if GlobalHub == nil || GlobalHub.bus == nil {
+		return nil
+	}
+	return GlobalHub.bus.Close()
+}
+
+// HandleEvent 是 KafkaBus 消费到 ChatEvent 后的回调，把帧投递给本机持有的连接。
+func (h *Hub) HandleEvent(_ context.Context, e bus.ChatEvent) error {
+	h.Broadcast(&Envelope{Targets: e.Targets, Data: e.Frame})
+	return nil
+}
+
+// Publish 给业务侧用，把 ChatEvent 写进 KafkaBus 走跨实例扇出。
+func (h *Hub) Publish(ctx context.Context, e bus.ChatEvent) error {
+	if h == nil || h.bus == nil {
+		return errors.New("ws: bus 未初始化")
+	}
+	return h.bus.Publish(ctx, e)
 }
 
 // Run 负责串行处理注册/注销/广播，避免 clients map 的并发写。

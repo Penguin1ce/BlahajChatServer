@@ -353,7 +353,7 @@ GET /ws/wslogin?token=<access_token>
 
 - `send` 成功后，服务端先返回 `ackok` 给当前发送连接。`ackok` 只表示这次发送请求已经被服务端处理成功，当前实现里也就是消息已经落到 MySQL。
 - `client_msg_id` 由客户端生成（建议 UUID v4），用于本地"发送中"草稿匹配，也用于服务端 Redis `SETNX` 幂等去重。重复发送命中幂等时，只会补回当前连接的 `ackok`，不会再次 fan-out `msg`。
-- 新消息落库成功后，WS 层会查询会话成员，生成 `ChatEvent{MsgID, ConvID, Targets, Frame}`，再调用 `bus.Global.Publish` 写入 Kafka。
+- 新消息落库成功后，WS 层会查询会话成员，生成 `ChatEvent{MsgID, ConvID, Targets, Frame}`，再通过 `(*ws.Hub).Publish` 写入 Kafka。`Hub` 持有 `*bus.KafkaBus`，业务层不再访问 `bus` 包的全局变量。
 - Kafka 只承担在线 fanout 事件通道，不是消息事实源；事实源仍是 MySQL 的 `messages` 表。Kafka publish 失败时，消息可能已经落库，客户端可通过历史消息接口补偿。
 - 每个服务实例的 Kafka consumer 都会消费事件，并只向本机 `Hub` 上在线的目标用户连接投递 `msg`。不在线的用户不会被 Kafka "补发"，上线后走历史消息接口。
 - `Targets` 包含会话所有成员，所以发送者自己的其它端会收到 `msg`；当前发送连接也会收到一份 `msg`。客户端需要按 `msg_id` 或 `client_msg_id` 做本地去重和状态合并。

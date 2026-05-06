@@ -177,7 +177,7 @@ func (c *Client) dispatch(payload []byte) {
 			zlog.Errorf("WS msg 帧序列化失败 uid=%d conn=%s msg=%s err=%s", c.userID, c.connID, msg.MsgID, err.Error())
 			return
 		}
-		if err := bus.Global.Publish(ctx, bus.ChatEvent{
+		if err := c.hub.Publish(ctx, bus.ChatEvent{
 			MsgID:   msg.MsgID,
 			ConvID:  d.ConvID,
 			Targets: members,

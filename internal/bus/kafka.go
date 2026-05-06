@@ -30,7 +30,7 @@ type KafkaConfig struct {
 type KafkaBus struct {
 	writer  *kafka.Writer
 	reader  *kafka.Reader
-	onEvent PublishFunc
+	onEvent EventHandler
 
 	mu        sync.Mutex
 	runOnce   sync.Once
@@ -42,21 +42,21 @@ type KafkaBus struct {
 	closeErr  error
 }
 
-func InitKafka(parent context.Context, cfg KafkaConfig, onEvent PublishFunc) error {
+// InitKafka 装配并启动一个 KafkaBus。调用方负责持有返回值并在退出时 Close。
+func InitKafka(parent context.Context, cfg KafkaConfig, onEvent EventHandler) (*KafkaBus, error) {
 	kbus, err := NewKafka(cfg, onEvent)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	kbus.Run(parent)
-	Global = kbus
 	zlog.Info("使用 KafkaBus 作为消息扇出通道",
 		"brokers", cfg.Brokers,
 		"topic", cfg.Topic,
 	)
-	return nil
+	return kbus, nil
 }
 
-func NewKafka(cfg KafkaConfig, onEvent PublishFunc) (*KafkaBus, error) {
+func NewKafka(cfg KafkaConfig, onEvent EventHandler) (*KafkaBus, error) {
 	if len(cfg.Brokers) == 0 {
 		return nil, errors.New("kafka: brokers 为空")
 	}
@@ -115,6 +115,22 @@ func (k *KafkaBus) Run(parent context.Context) {
 
 		go func() {
 			defer close(done)
+			// 			for {
+			//     尝试从 Kafka 拉消息
+
+			//     如果拉消息失败：
+			//         如果是 ctx 被取消：
+			//             退出
+			//         否则：
+			//             打日志
+			//             等 500ms
+			//             再重试
+
+			//     如果拉到消息：
+			//         反序列化
+			//         本地处理
+			//         commit offset
+			// }
 			for {
 				m, err := k.reader.FetchMessage(ctx)
 				if err != nil {

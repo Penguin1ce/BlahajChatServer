@@ -2,7 +2,7 @@
 
 本文记录用户从 WebSocket 发送消息后，当前后端的处理逻辑和函数调用顺序。
 
-当前版本已经把“消息扇出”从 `client.go` 里直接调用 `Hub.Broadcast`，改成了通过 `bus.Global.Publish` 发布 `ChatEvent`。运行时固定使用 `KafkaBus`：先写入 Kafka，再由每个服务实例自己的 consumer 消费事件，最后只扇出到各自本机 `Hub` 上的在线连接。
+当前版本已经把“消息扇出”从 `client.go` 里直接调用 `Hub.Broadcast`，改成了通过 `(*ws.Hub).Publish` 发布 `ChatEvent`。运行时固定使用 `KafkaBus`：先写入 Kafka，再由每个服务实例自己的 consumer 消费事件，最后只扇出到各自本机 `Hub` 上的在线连接。`Hub` 同时充当生产者（Publish）和消费者回调（HandleEvent），KafkaBus 由 Hub 持有，`bus` 包不再有全局变量。
 
 ## 总览
 
@@ -19,18 +19,19 @@ Client.readPump
 → Client.sendFrame(OpAckOK)
 → dao.ListMembers
 → marshalFrame(OpMsg)
-→ bus.Global.Publish(ChatEvent)
+→ (*ws.Hub).Publish(ChatEvent)
 ```
 
 ### KafkaBus 分支
 
 ```text
-bus.KafkaBus.Publish
+(*ws.Hub).Publish
+→ KafkaBus.Publish
 → Kafka Writer 写入配置的 topic（默认 chat.events）
 → KafkaBus.Run consumer FetchMessage
 → 反序列化 ChatEvent
-→ fanout 回调
-→ ws.GlobalHub.Broadcast
+→ (*ws.Hub).HandleEvent  （EventHandler 回调）
+→ Hub.Broadcast
 → Hub.Run
 → Hub.SendToUser
 → Client.writePump
@@ -39,41 +40,25 @@ bus.KafkaBus.Publish
 
 ## 启动时如何装配 Bus
 
-`cmd/server/main.go` 启动时会先初始化 Hub：
+`cmd/server/main.go` 启动时只调用 `ws.InitHub`，由它负责初始化 `Hub`、装配 `KafkaBus` 并把 `Hub.HandleEvent` 作为消费回调注入：
 
 ```go
-ws.InitHub()
-```
-
-然后构造一个本地扇出回调：
-
-```go
-fanout := func(_ context.Context, e bus.ChatEvent) error {
-    ws.GlobalHub.Broadcast(&ws.Envelope{
-        Targets: e.Targets,
-        Data:    e.Frame,
-    })
-    return nil
-}
-```
-
-然后固定初始化 `KafkaBus`：
-
-```go
-if err := bus.InitKafka(context.Background(), bus.KafkaConfig{
+if err := ws.InitHub(context.Background(), bus.KafkaConfig{
     Brokers: config.CFG.Kafka.Brokers,
     Topic:   config.CFG.Kafka.Topic,
     GroupID: config.CFG.Kafka.GroupID,
-}, fanout); err != nil {
-    zlog.Fatal("KafkaBus 初始化失败", "err", err)
+}); err != nil {
+    zlog.Fatal("WS Hub 初始化失败", "err", err)
 }
-defer bus.CloseGlobal()
+defer ws.CloseHub()
 ```
 
-所以 `client.go` 不需要关心 Kafka 细节，只需要调用：
+`ws` 包内部会调 `bus.InitKafka(ctx, cfg, h.HandleEvent)` 启动 Kafka consumer，并把返回的 `*KafkaBus` 存到 `Hub.bus` 字段。`bus` 包没有全局变量，"谁拥有 KafkaBus"和"谁负责本地扇出"都收敛在 ws 包内。
+
+所以 `client.go` 不需要关心 Kafka 细节，只需要通过自己持有的 `Hub` 调用：
 
 ```go
-bus.Global.Publish(ctx, event)
+c.hub.Publish(ctx, event)
 ```
 
 ## 详细流程
@@ -214,7 +199,7 @@ data, err := marshalFrame(OpMsg, 0, msg)
 17. `dispatch` 发布扇出事件：
 
 ```go
-err := bus.Global.Publish(ctx, bus.ChatEvent{
+err := c.hub.Publish(ctx, bus.ChatEvent{
     MsgID:   msg.MsgID,
     ConvID:  d.ConvID,
     Targets: members,
@@ -222,7 +207,7 @@ err := bus.Global.Publish(ctx, bus.ChatEvent{
 })
 ```
 
-从这里开始，事件进入 KafkaBus 扇出流程。这里的 `Targets` 是发送时刻查出的会话成员快照，下游不再重新查成员列表。
+`Hub.Publish` 内部委托给它持有的 `KafkaBus.Publish`。从这里开始，事件进入 KafkaBus 扇出流程。这里的 `Targets` 是发送时刻查出的会话成员快照，下游不再重新查成员列表。
 
 ## KafkaBus 扇出流程
 
@@ -251,10 +236,10 @@ var e ChatEvent
 json.Unmarshal(m.Value, &e)
 ```
 
-然后调用启动时传入的 `fanout` 回调，进入本机 Hub：
+然后调用启动时注入的 `EventHandler` 回调，也就是 `(*ws.Hub).HandleEvent`，进入本机 Hub：
 
 ```go
-k.onEvent(ctx, e)
+k.onEvent(ctx, e) // 实际指向 Hub.HandleEvent → Hub.Broadcast
 ```
 
 本地扇出完成后手动提交 offset：

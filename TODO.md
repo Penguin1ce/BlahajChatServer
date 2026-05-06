@@ -2,17 +2,16 @@
 
 ## 当前收口：Kafka 扇出工程化
 
-当前代码已经接入了 `FanoutBus` 和 `KafkaBus`，下一步目标不是继续堆功能，而是把这条链路收成“可跑、可关、可解释”的状态。
+当前代码已经接入了 `KafkaBus`，下一步目标不是继续堆功能，而是把这条链路收成“可跑、可关、可解释”的状态。
 
 ### 已完成
 
 - [x] 新增 `internal/bus` 包
-- [x] 定义 `ChatEvent`
-- [x] 定义 `FanoutBus`
+- [x] 定义 `ChatEvent` 与 `EventHandler` 回调类型
 - [x] 实现 `KafkaBus`
-- [x] `client.go` 从直接调用 Hub 改为 `bus.Global.Publish`
-- [x] `main.go` 固定装配 `KafkaBus`
-- [x] `bus` 包不 import `internal/ws`，避免 import cycle
+- [x] `client.go` 从直接调用 Hub 改为 `(*ws.Hub).Publish`
+- [x] `Hub` 持有 `*bus.KafkaBus`，由 `ws.InitHub(ctx, kafkaCfg)` 一并装配并把 `Hub.HandleEvent` 注入为消费回调
+- [x] `bus` 包不 import `internal/ws`，避免 import cycle；`bus` 包也不再持有全局变量
 
 ### 待验证
 
