@@ -337,7 +337,7 @@ GET /ws/wslogin?token=<access_token>
 | ↑ 上行 | `ping`   | ✅ 已实现 | 无                                                                             | 业务心跳（探活 / 测 RTT）      |
 | ↑ 上行 | `send`   | ✅ 已实现 | `{client_msg_id, conv_id, type, content, reply_to?, mentions?}`                | 发消息                         |
 | ↑ 上行 | `ack`    | 🚧 规划中 | `{msg_id}`                                                                     | 客户端确认收到某条 `msg`       |
-| ↑ 上行 | `read`   | 🚧 规划中 | `{conv_id, msg_id}`                                                            | 已读上报                       |
+| ↑ 上行 | `read`   | ✅ 已实现 | `{conv_id, msg_id}`                                                            | 已读上报                       |
 | ↑ 上行 | `recall` | 🚧 规划中 | `{msg_id}`                                                                     | 撤回                           |
 | ↑ 上行 | `typing` | 🚧 规划中 | `{conv_id}`                                                                    | 输入中（不落库，直接 fan-out） |
 | ↓ 下行 | `pong`   | ✅ 已实现 | 无                                                                             | `ping` 的回应                  |
@@ -347,7 +347,7 @@ GET /ws/wslogin?token=<access_token>
 | ↓ 下行 | `notify` | 🚧 规划中 | `{conv_id, reader_uid, msg_id}`                                                | 已读回执通知                   |
 | ↓ 下行 | `kick`   | 🚧 规划中 | -                                                                              | 服务端主动踢下线（重复登录等） |
 
-> 当前已经打通 `send -> ackok -> Kafka fanout -> msg` 主链路。`send` 会走 `service.HandleSend` 做幂等、成员校验、消息落库、会话最后消息更新和未读数更新；`ack` / `read` / `recall` / `typing` 等上行帧还没有接入 dispatch，目前会返回 `error{code:"unknown_op"}`。
+> 当前已经打通 `send -> ackok -> Kafka fanout -> msg` 主链路。`send` 会走 `service.HandleSend` 做幂等、成员校验、消息落库、会话最后消息更新和未读数更新；`read` 会更新当前用户在该会话的 `last_read_msg_id` 并清空 `unread`。`ack` / `recall` / `typing` 等上行帧还没有接入 dispatch，目前会返回 `error{code:"unknown_op"}`。
 
 ### `send` / `msg` 行为说明
 
@@ -357,6 +357,14 @@ GET /ws/wslogin?token=<access_token>
 - Kafka 只承担在线 fanout 事件通道，不是消息事实源；事实源仍是 MySQL 的 `messages` 表。Kafka publish 失败时，消息可能已经落库，客户端可通过历史消息接口补偿。
 - 每个服务实例的 Kafka consumer 都会消费事件，并只向本机 `Hub` 上在线的目标用户连接投递 `msg`。不在线的用户不会被 Kafka "补发"，上线后走历史消息接口。
 - `Targets` 包含会话所有成员，所以发送者自己的其它端会收到 `msg`；当前发送连接也会收到一份 `msg`。客户端需要按 `msg_id` 或 `client_msg_id` 做本地去重和状态合并。
+
+### `read` 行为说明
+
+- 当前 `read` 的语义是"把当前会话标记为已读到这条消息"，客户端应在已经展示到会话最新可见消息后再上报。
+- 服务端会先校验当前用户是该会话成员，并确认 `msg_id` 属于这个 `conv_id`。
+- 校验通过后，服务端更新当前用户的 `user_conv.last_read_msg_id`，同时把该会话 `unread` 清零。这里的清零成立，是因为当前版本把 `read` 当成"会话已读"动作，而不是任意中间游标。
+- 如果以后要支持"只读到中间某条，后面仍有未读"，需要把 `unread` 改成按 `last_read_msg_id` 之后的消息重新计算，而不是直接清零。
+- 当前版本只更新当前用户自己的已读状态，暂不 fan-out `notify` 给会话其他成员。
 
 ### 帧示例
 
@@ -413,6 +421,22 @@ GET /ws/wslogin?token=<access_token>
 
 `ackok` 会带回原始 `seq`，用于和本次 `send` 请求配对；`msg` 是会话级新消息事件，不绑定发送请求的 `seq`。
 
+**已读上报**
+
+```json
+// ↑ 上行
+{
+  "op": "read",
+  "seq": 3,
+  "data": {
+    "conv_id": "conv-demo",
+    "msg_id": "<当前会话最新可见消息的 uuid>"
+  }
+}
+```
+
+`read` 成功时当前版本不额外回包；失败时会返回带原始 `seq` 的 `error{code:"read_failed"}`。客户端再次拉 `GET /api/conversations` 时，对应会话的 `last_read_msg_id` 会更新，`unread` 会变成 `0`。
+
 **错误回包**
 
 ```json
@@ -420,7 +444,7 @@ GET /ws/wslogin?token=<access_token>
   "op": "error",
   "seq": 3,
   "data": {
-    "code": "bad_frame | bad_data | unknown_op | send_failed",
+    "code": "bad_frame | bad_data | unknown_op | send_failed | read_failed",
     "message": "<错误描述>"
   }
 }
@@ -432,6 +456,7 @@ GET /ws/wslogin?token=<access_token>
 | `bad_data`   | `data` 内层 payload 不符合 op 的结构   |
 | `unknown_op` | 服务端不识别该 op（版本不匹配 / 拼错） |
 | `send_failed` | `send` 业务处理失败，例如参数非法、非会话成员、落库失败 |
+| `read_failed` | `read` 业务处理失败，例如参数非法、非会话成员、消息不属于该会话 |
 
 ### 连接生命周期约定
 

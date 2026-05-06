@@ -125,7 +125,7 @@ func waitExistingMsgData(ctx context.Context, msgID string) (*wspayload.MsgData,
 
 	var lastErr error
 	for i := 0; i < 3; i++ {
-		msg, err := dao.GetByMsgID(ctx, msgID)
+		msg, err := dao.GetMessageByID(ctx, msgID)
 		if err == nil {
 			return messageToMsgData(msg, nil)
 		}

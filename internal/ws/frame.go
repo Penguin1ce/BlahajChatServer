@@ -35,13 +35,10 @@ type Frame struct {
 
 // ---- 上行 payload ----
 type SendData = wspayload.SendData
+type ReadData = wspayload.ReadData
 
 type AckData struct {
 	MsgID string `json:"msg_id"`
-}
-type ReadData struct {
-	ConvID string `json:"conv_id"`
-	MsgID  string `json:"msg_id"`
 }
 
 // ---- 下行 payload ----

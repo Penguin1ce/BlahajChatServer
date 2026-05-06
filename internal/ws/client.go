@@ -102,6 +102,26 @@ func (c *Client) dispatch(payload []byte) {
 		)
 		c.sendFrame(OpPong, frame.Seq, nil)
 
+	case OpRead:
+		var d ReadData
+		if err := json.Unmarshal(frame.Data, &d); err != nil {
+			c.sendFrame(OpError, frame.Seq, ErrorData{Code: "bad_data", Message: err.Error()})
+			return
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), sendHandleWait)
+		defer cancel()
+		if err := service.HandleRead(ctx, c.userID, d); err != nil {
+			zlog.Warnf("WS read 处理失败 uid=%d conn=%s conv=%s msg=%s err=%s", c.userID, c.connID, d.ConvID, d.MsgID, err.Error())
+			c.sendFrame(OpError, frame.Seq, ErrorData{Code: "read_failed", Message: err.Error()})
+			return
+		}
+		zlog.Debug("WS 收到 read 帧",
+			"uid", c.userID,
+			"conn", c.connID,
+			"conv_id", d.ConvID,
+			"msg_id", d.MsgID,
+		)
+
 	case OpSend:
 		// send 是发消息主链路：WS 层负责解协议帧、回 ack、扇出 msg；
 		// 真正的幂等、成员校验、落库、未读更新都放在 service.HandleSend。

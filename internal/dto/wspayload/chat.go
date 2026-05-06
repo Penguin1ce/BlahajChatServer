@@ -12,6 +12,12 @@ type SendData struct {
 	Mentions    []uint64        `json:"mentions,omitempty"`
 }
 
+// ReadData 是客户端 read 帧的业务 payload。
+type ReadData struct {
+	ConvID string `json:"conv_id"`
+	MsgID  string `json:"msg_id"`
+}
+
 // MsgData 是服务端下发 msg 帧的业务 payload。
 type MsgData struct {
 	MsgID     string          `json:"msg_id"`

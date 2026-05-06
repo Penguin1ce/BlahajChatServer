@@ -32,10 +32,10 @@
 
 ### 1. 消息已读闭环
 
-- [ ] 实现 WS `OpRead`
-- [ ] service 层新增 `HandleRead(uid, data)`
-- [ ] 复用 `dao.UpdateLastRead(uid, convID, msgID)`
-- [ ] 读到消息后清空当前用户该会话 `unread`
+- [x] 实现 WS `OpRead`
+- [x] service 层新增 `HandleRead(uid, data)`
+- [x] 复用 `dao.UpdateLastRead(uid, convID, msgID)`
+- [x] 读到消息后清空当前用户该会话 `unread`
 - [ ] 可选：广播 `OpNotify` 给会话其他在线端
 - [ ] ws_tester 增加已读上报按钮
 
@@ -58,7 +58,7 @@
 - [ ] A 的另一个页面也能收到 `msg`
 - [ ] 重发同一个 `client_msg_id` 不重复落库
 - [ ] `GET /api/conversations/:id/messages` 能拉到历史消息
-- [ ] 已读上报后 `user_conv.unread` 清零
+- [x] 已读上报后 `user_conv.unread` 清零
 
 ## P1：简历加分项
 

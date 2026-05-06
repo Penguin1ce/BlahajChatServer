@@ -30,7 +30,7 @@ func GetHistoryMessageByID(ctx context.Context, uid uint64, convID string, befor
 		limit = 100
 	}
 
-	msgs, err := dao.ListByConv(ctx, convID, beforeID, limit+1)
+	msgs, err := dao.ListMessageByConvID(ctx, convID, beforeID, limit+1)
 	if err != nil {
 		return nil, err
 	}
