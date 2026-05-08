@@ -12,11 +12,12 @@ const (
 //
 // 它只记录会话自身的属性（名字、头像、最后一条消息等），
 // 不包含任何"某个用户对这个会话的态度"（未读数、置顶、免打扰等）——
-// 那些属于 UserConv。
+// 那些属于 ConversationState。
 //
 // 典型使用场景：
-//   - Hub 发群消息前，service 先查 UserConv 拿到成员 uid 列表
-//   - 客户端拉会话列表，JOIN UserConv 取出本会话卡片信息
+//   - C2C 成员由 PeerKey 表示
+//   - 群聊成员由 group_info.members 表示
+//   - 客户端拉会话列表时结合 ConversationState 取个人状态
 type Conversation struct {
 	// ConvId 会话主键。UUID 字符串（36 位），由 service 层建会话时生成。
 	ConvId string `gorm:"primaryKey;size:36" json:"conv_id"`

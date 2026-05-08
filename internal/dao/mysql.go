@@ -29,7 +29,8 @@ func InitMySQL() {
 		&model.FriendApply{},
 		&model.Block{},
 		&model.Conversation{},
-		&model.UserConv{},
+		&model.GroupInfo{},
+		&model.ConversationState{},
 		&model.Message{},
 	); err != nil {
 		log.Fatal("AutoMigrate 失败 ", err)

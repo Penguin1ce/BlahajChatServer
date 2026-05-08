@@ -57,7 +57,7 @@ func GetOrCreateC2C(ctx context.Context, uidA, uidB uint64) (*model.Conversation
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
-	// slow path：会话不存在，事务里建会话 + 两行 user_conv
+	// slow path：会话不存在，事务里建会话 + 两行 conversation_state
 	newConv := model.Conversation{
 		ConvId:    uuid.NewString(),
 		Type:      model.ConvTypeC2C,
@@ -74,11 +74,11 @@ func GetOrCreateC2C(ctx context.Context, uidA, uidB uint64) (*model.Conversation
 			}
 			return err
 		}
-		members := []model.UserConv{
+		states := []model.ConversationState{
 			{UID: uidA, ConvID: newConv.ConvId},
 			{UID: uidB, ConvID: newConv.ConvId},
 		}
-		return tx.Create(&members).Error
+		return CreateConversationStatesTx(ctx, tx, states)
 	})
 	if err != nil {
 		return nil, err

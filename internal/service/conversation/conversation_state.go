@@ -10,14 +10,14 @@ import (
 
 func GetConversationListByID(ctx context.Context, uid uint64) ([]response.ConversationListResp, error) {
 	// uid 为当前用户的id，根据id去查用户的conversationList用于界面的展示
-	userConvs, err := dao.GetUserConvsByUID(ctx, uid)
+	states, err := dao.GetConversationStatesByUID(ctx, uid)
 	if err != nil {
 		return nil, err
 	}
 
-	convIDs := make([]string, 0, len(userConvs))
-	for _, userConv := range userConvs {
-		convIDs = append(convIDs, userConv.ConvID)
+	convIDs := make([]string, 0, len(states))
+	for _, state := range states {
+		convIDs = append(convIDs, state.ConvID)
 	}
 
 	convByID, err := dao.GetConvsByIDs(ctx, convIDs)
@@ -25,14 +25,14 @@ func GetConversationListByID(ctx context.Context, uid uint64) ([]response.Conver
 		return nil, err
 	}
 
-	res := userConvToConversationList(userConvs, convByID)
+	res := conversationStatesToList(states, convByID)
 	return res, nil
 }
 
-func userConvToConversationList(userConvs []model.UserConv, convByID map[string]model.Conversation) []response.ConversationListResp {
-	resp := make([]response.ConversationListResp, 0, len(userConvs))
-	for _, userConv := range userConvs {
-		conv, ok := convByID[userConv.ConvID]
+func conversationStatesToList(states []model.ConversationState, convByID map[string]model.Conversation) []response.ConversationListResp {
+	resp := make([]response.ConversationListResp, 0, len(states))
+	for _, state := range states {
+		conv, ok := convByID[state.ConvID]
 		if !ok {
 			continue
 		}
@@ -50,10 +50,10 @@ func userConvToConversationList(userConvs []model.UserConv, convByID map[string]
 			OwnerID:       conv.OwnerID,
 			LastMsgID:     conv.LastMsgID,
 			LastMsgAt:     lastMsgAt,
-			LastReadMsgID: userConv.LastReadMsgID,
-			Unread:        userConv.Unread,
-			Pinned:        userConv.Pinned,
-			Muted:         userConv.Muted,
+			LastReadMsgID: state.LastReadMsgID,
+			Unread:        state.Unread,
+			Pinned:        state.Pinned,
+			Muted:         state.Muted,
 		}
 		if conv.PeerKey != nil {
 			item.PeerKey = *conv.PeerKey

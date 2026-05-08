@@ -23,7 +23,7 @@ const (
 //   - ID 自增 BIGINT 作为真正主键，用于会话内排序、分页 cursor、
 //     "查 msg_id > last_read_msg_id 的数量"这类查询（UUID 无法比较大小）。
 //   - MsgID UUID 作为对外稳定 ID：客户端 ACK、撤回、引用消息（ReplyTo）全部用它。
-//     Conversation.LastMsgID / UserConv.LastReadMsgID 存的也是它。
+//     Conversation.LastMsgID / ConversationState.LastReadMsgID 存的也是它。
 //
 // Content 存的是已序列化的 JSON 字符串，不同 Type 的结构不同（文本 / 图片 url+尺寸 / 文件 meta 等），
 // 由 ws 层按 Type 解析，DAO/DB 不关心内部结构。

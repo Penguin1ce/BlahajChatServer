@@ -12,12 +12,12 @@
 Client.readPump
 → Client.dispatch
 → service.HandleSend
-→ dao.IsMember
+→ dao.IsMember（C2C 看 peer_key，群聊看 group_info.members）
 → dao.CreateMessageTx
 → dao.UpdateLastMsgTx
 → dao.IncrUnreadExceptTx
 → Client.sendFrame(OpAckOK)
-→ dao.ListMembers
+→ dao.ListMembers（C2C 看 peer_key，群聊看 group_info.members）
 → marshalFrame(OpMsg)
 → (*ws.Hub).Publish(ChatEvent)
 ```
@@ -157,7 +157,7 @@ dao.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 
 - 插入 `messages`
 - 更新 `conversations.last_msg_id` 和 `conversations.last_msg_at`
-- 给除发送者外的其他成员 `user_conv.unread + 1`
+- 给除发送者外的其他会话状态 `conversation_state.unread + 1`
 
 如果事务失败，会删除 Redis 幂等 key，避免 Redis 占坑但消息没有落库。
 

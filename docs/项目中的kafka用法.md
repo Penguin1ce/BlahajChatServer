@@ -22,7 +22,7 @@ internal/ws/client.go: dispatch OpSend
    ▼
 service.HandleSend
    ├─ Redis SETNX 幂等（按 client_msg_id）
-   ├─ MySQL 事务：messages + conversation.last_msg + user_conv.unread
+   ├─ MySQL 事务：messages + conversation.last_msg + conversation_state.unread
    └─ 返回 MsgData, created
    │
    ├─ 当前发送连接先收到 ackok（只表示服务端已处理/已落库）
@@ -158,7 +158,7 @@ if err := json.Unmarshal(m.Value, &e); err != nil {
 - 参数校验通过
 - 发送者是会话成员
 - 消息已经写入 MySQL `messages`
-- `conversations.last_msg_id/last_msg_at` 和其他成员 `user_conv.unread` 已经在同一个事务里更新
+- `conversations.last_msg_id/last_msg_at` 和其他会话状态 `conversation_state.unread` 已经在同一个事务里更新
 
 它不表示 Kafka publish 已经成功，也不表示其它在线端已经收到 `msg`。
 
