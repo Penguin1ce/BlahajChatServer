@@ -1,3 +1,26 @@
+## 当前数据模型
+
+当前后端以 MySQL 作为消息和关系事实源，Redis 负责验证码、Refresh Token、Access Token 黑名单和发送幂等，Kafka 只负责在线消息 fanout。
+
+核心表职责如下：
+
+| 表 | 职责 |
+| --- | --- |
+| `users` | 用户账号、邮箱、昵称、头像、密码哈希 |
+| `friendships` | 已建立好友关系，`uid_a + uid_b` 联合唯一，业务层保证 `uid_a < uid_b` |
+| `friend_apply` | 好友申请，状态为 `pending / accepted / rejected / canceled` |
+| `blocks` | 单向拉黑关系，`uid` 拉黑 `blocked_uid` |
+| `conversations` | 会话公共信息，包含 `conv_id/type/peer_key/last_msg_id/last_msg_at` |
+| `group_info` | 群聊资料和群成员快照，`members` 是 JSON uid 数组 |
+| `conversation_state` | 当前用户对某个会话的个人状态：`last_read_msg_id/unread/pinned/muted` |
+| `messages` | 消息事实源，保存每条消息正文和排序游标 |
+
+成员关系来源按会话类型区分：
+
+- C2C：从 `conversations.peer_key` 解析双方 uid。
+- 群聊：从 `group_info.members` 反序列化成员 uid。
+- `conversation_state` 不再表示成员关系，只表示用户视角下的会话状态。
+
 ## 注册接口
 
 注册分两步：先获取邮箱验证码，再提交注册信息。
@@ -246,10 +269,10 @@ POST /api/conversations/c2c
 GET /api/conversations
 ```
 
-返回当前登录用户加入的会话列表。会话列表由 `conversations` 和 `user_conv` 组合得到：
+返回当前登录用户的会话列表。会话列表由 `conversations` 和 `conversation_state` 组合得到：
 
 - `conversations` 提供会话公共信息：`conv_id`、`type`、`peer_key`、`name`、`avatar`、`owner_id`、`last_msg_id`、`last_msg_at`
-- `user_conv` 提供当前用户自己的状态：`last_read_msg_id`、`unread`、`pinned`、`muted`
+- `conversation_state` 提供当前用户自己的状态：`last_read_msg_id`、`unread`、`pinned`、`muted`
 - 排序规则：`pinned DESC, last_msg_at DESC`
 
 **成功响应 `200`**
@@ -288,6 +311,162 @@ GET /api/conversations/:id/messages?before_id=0&limit=20
 | `limit`     | number | 否   | 每页数量，默认 `20`，最大 `100`                |
 
 服务端会先校验当前用户是否属于该会话；不是成员时返回 `403`。
+
+## HTTP 好友接口
+
+这些接口都需要携带：
+
+```
+Authorization: Bearer <access_token>
+```
+
+### 好友列表
+
+```
+GET /api/friends
+```
+
+返回当前用户的正常好友关系。好友关系是无方向的，服务端内部用排序后的 `uid_a + uid_b` 去重。
+
+**成功响应 `200`**
+
+```json
+{
+    "code": 200,
+    "message": "success",
+    "data": {
+        "items": [
+            {
+                "uid": 2,
+                "email": "friend@icloud.com",
+                "nickname": "好友",
+                "avatar_url": "https://images.cdn.org/img/index/sticker.webp"
+            }
+        ]
+    }
+}
+```
+
+### 发起好友申请
+
+```
+POST /api/friends/apply
+```
+
+`from_uid` 不从请求体读取，永远以后端 JWT 登录态为准。
+
+**请求体**
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `to_uid` | number | 是 | 要添加的用户 ID |
+| `reason` | string | 否 | 申请说明 |
+
+```json
+{
+    "to_uid": 2,
+    "reason": "你好"
+}
+```
+
+服务端会校验：
+
+- 不能添加自己。
+- `to_uid` 必须存在。
+- 任意方向存在拉黑关系时不能申请。
+- 已经是好友时不能重复申请。
+- 两人之间已有 `pending` 申请时不能重复插入。
+
+**成功响应 `200`**
+
+```json
+{
+    "code": 200,
+    "message": "success",
+    "data": {
+        "id": 1,
+        "from_uid": 1,
+        "to_uid": 2,
+        "status": "pending",
+        "reason": "你好",
+        "created_at": "2026-05-08T12:00:00+08:00"
+    }
+}
+```
+
+### 查看收到的好友申请
+
+```
+GET /api/friends/applies
+```
+
+只返回当前用户收到的 `pending` 申请。
+
+**成功响应 `200`**
+
+```json
+{
+    "code": 200,
+    "message": "success",
+    "data": {
+        "items": [
+            {
+                "id": 1,
+                "from_uid": 1,
+                "to_uid": 2,
+                "status": "pending",
+                "reason": "你好",
+                "created_at": 1777990262926
+            }
+        ]
+    }
+}
+```
+
+### 同意好友申请
+
+```
+POST /api/friends/applies/:id/accept
+```
+
+只有申请接收方本人可以操作。服务端会在同一个 MySQL 事务里完成：
+
+1. 把 `friend_apply.status` 从 `pending` 更新为 `accepted`。
+2. 写入或恢复 `friendships`，如果旧关系是 `deleted` 会恢复为 `normal`。
+3. 创建或获取双方 C2C 会话。
+4. 确保双方都有对应的 `conversation_state`。
+
+成功后返回 C2C 会话信息。
+
+### 拒绝好友申请
+
+```
+POST /api/friends/applies/:id/reject
+```
+
+只有申请接收方本人可以操作。服务端只会把 `friend_apply.status` 从 `pending` 更新为 `rejected`。
+
+**成功响应 `200`**
+
+```json
+{
+    "code": 200,
+    "message": "success",
+    "data": {
+        "ok": true
+    }
+}
+```
+
+### 好友接口错误码
+
+| HTTP 状态码 | 说明 |
+| --- | --- |
+| `400` | 参数错误，例如添加自己 |
+| `403` | 没有权限，或存在拉黑关系 |
+| `404` | 目标用户或好友申请不存在 |
+| `409` | 已经是好友、已有 pending 申请，或申请已处理 |
+| `500` | 系统错误 |
 
 ## WebSocket 接口
 
@@ -347,7 +526,7 @@ GET /ws/wslogin?token=<access_token>
 | ↓ 下行 | `notify` | 🚧 规划中 | `{conv_id, reader_uid, msg_id}`                                                | 已读回执通知                   |
 | ↓ 下行 | `kick`   | 🚧 规划中 | -                                                                              | 服务端主动踢下线（重复登录等） |
 
-> 当前已经打通 `send -> ackok -> Kafka fanout -> msg` 主链路。`send` 会走 `service.HandleSend` 做幂等、成员校验、消息落库、会话最后消息更新和未读数更新；`read` 会更新当前用户在该会话的 `last_read_msg_id` 并清空 `unread`。`ack` / `recall` / `typing` 等上行帧还没有接入 dispatch，目前会返回 `error{code:"unknown_op"}`。
+> 当前已经打通 `send -> ackok -> Kafka fanout -> msg` 主链路。`send` 会走 `chat.HandleSend` 做幂等、成员校验、消息落库、会话最后消息更新和未读数更新；`read` 会更新当前用户在该会话的 `last_read_msg_id` 并清空 `unread`。`ack` / `recall` / `typing` 等上行帧还没有接入 dispatch，目前会返回 `error{code:"unknown_op"}`。
 
 ### `send` / `msg` 行为说明
 
@@ -362,7 +541,7 @@ GET /ws/wslogin?token=<access_token>
 
 - 当前 `read` 的语义是"把当前会话标记为已读到这条消息"，客户端应在已经展示到会话最新可见消息后再上报。
 - 服务端会先校验当前用户是该会话成员，并确认 `msg_id` 属于这个 `conv_id`。
-- 校验通过后，服务端更新当前用户的 `user_conv.last_read_msg_id`，同时把该会话 `unread` 清零。这里的清零成立，是因为当前版本把 `read` 当成"会话已读"动作，而不是任意中间游标。
+- 校验通过后，服务端更新当前用户的 `conversation_state.last_read_msg_id`，同时把该会话 `unread` 清零。这里的清零成立，是因为当前版本把 `read` 当成"会话已读"动作，而不是任意中间游标。
 - 如果以后要支持"只读到中间某条，后面仍有未读"，需要把 `unread` 改成按 `last_read_msg_id` 之后的消息重新计算，而不是直接清零。
 - 当前版本只更新当前用户自己的已读状态，暂不 fan-out `notify` 给会话其他成员。
 
@@ -477,7 +656,8 @@ GET /debug/ws-tester
 
 - 一键调用 `/auth/login` 拿 token
 - 一键 Upgrade `/ws/wslogin`
-- 模板化发送 `send` 帧 / `ping` 帧 / 任意原始 Frame
+- 模板化发送 `send` 帧 / `ping` 帧 / 已读上报 / 任意原始 Frame
+- 一键创建或选择 C2C 会话、拉历史消息、重复上一帧
 - 收发日志面板
 
 直接浏览器访问 `http://localhost:8080/debug/ws-tester` 即可使用。

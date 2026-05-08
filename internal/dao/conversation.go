@@ -43,48 +43,78 @@ func GetConvsByIDs(ctx context.Context, convIDs []string) (map[string]model.Conv
 }
 
 func GetOrCreateC2C(ctx context.Context, uidA, uidB uint64) (*model.Conversation, error) {
+	// 1. 非事务场景直接委托给事务版本；tx=nil 时内部会自己开启事务。
+	return GetOrCreateC2CTx(ctx, nil, uidA, uidB)
+}
+
+func GetOrCreateC2CTx(ctx context.Context, tx *gorm.DB, uidA, uidB uint64) (*model.Conversation, error) {
+	// 1. 基础参数校验：C2C 必须是两个不同的有效用户。
 	if uidA == 0 || uidB == 0 || uidA == uidB {
 		return nil, errs.ErrFoundC2CPair
 	}
+
+	// 2. peer_key 使用排序后的 uid，保证 A-B 和 B-A 命中同一个单聊。
 	peerKey := makePeerKey(uidA, uidB)
-	// 如果有该对话则直接返回
 	var conv model.Conversation
-	err := DB.WithContext(ctx).Where("peer_key = ?", peerKey).First(&conv).Error
+	db := useDB(ctx, tx)
+
+	// 3. 快路径：会话已经存在时直接返回，并补齐双方 conversation_state。
+	err := db.Where("peer_key = ?", peerKey).First(&conv).Error
 	if err == nil {
+		if err := EnsureConversationStatesTx(ctx, tx, []model.ConversationState{
+			{UID: uidA, ConvID: conv.ConvId},
+			{UID: uidB, ConvID: conv.ConvId},
+		}); err != nil {
+			return nil, err
+		}
 		return &conv, nil
 	}
-	// 如果不是记录没有的错误则直接返回错误
+
+	// 4. 不是“未找到”的数据库错误直接返回。
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
-	// slow path：会话不存在，事务里建会话 + 两行 conversation_state
+
+	// 5. 慢路径：会话不存在，准备创建 conversations + 两行 conversation_state。
 	newConv := model.Conversation{
 		ConvId:    uuid.NewString(),
 		Type:      model.ConvTypeC2C,
 		PeerKey:   &peerKey,
 		LastMsgAt: time.Now(),
 	}
-	err = DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(&newConv).Error; err != nil {
-			// 唯一键冲突：并发的另一个请求刚建好，捡现成的
+	create := func(tx *gorm.DB) error {
+		// 5.1 先创建 C2C 会话本体。
+		if err := useDB(ctx, tx).Create(&newConv).Error; err != nil {
+			// 5.2 并发创建时可能撞 peer_key 唯一键；撞了就捡现成会话并补状态。
 			var existing model.Conversation
-			if e := tx.Where("peer_key = ?", peerKey).First(&existing).Error; e == nil {
+			if e := useDB(ctx, tx).Where("peer_key = ?", peerKey).First(&existing).Error; e == nil {
 				newConv = existing
-				return nil
+				return EnsureConversationStatesTx(ctx, tx, []model.ConversationState{
+					{UID: uidA, ConvID: newConv.ConvId},
+					{UID: uidB, ConvID: newConv.ConvId},
+				})
 			}
 			return err
 		}
+
+		// 5.3 新会话创建成功后，给双方各建一条个人会话状态。
 		states := []model.ConversationState{
 			{UID: uidA, ConvID: newConv.ConvId},
 			{UID: uidB, ConvID: newConv.ConvId},
 		}
 		return CreateConversationStatesTx(ctx, tx, states)
-	})
+	}
+
+	// 6. 如果外层已经有事务，就复用外层事务；否则这里自己开事务。
+	if tx != nil {
+		err = create(tx)
+	} else {
+		err = DB.WithContext(ctx).Transaction(create)
+	}
 	if err != nil {
 		return nil, err
 	}
 	return &newConv, nil
-
 }
 
 // UpdateLastMsg 把会话的最后一条消息 ID 和时间刷成新的，当前逻辑是只允许更新的更新
@@ -104,6 +134,7 @@ func UpdateLastMsgTx(ctx context.Context, tx *gorm.DB, convID, msgID string, ts 
 }
 
 func makePeerKey(uidA, uidB uint64) string {
+	// 1. 统一 uid 顺序，让同一对用户永远生成同一个 peer_key。
 	if uidA > uidB {
 		uidA, uidB = uidB, uidA
 	}

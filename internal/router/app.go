@@ -46,8 +46,17 @@ func Init() {
 	api := GE.Group("/api", middleware.JWTAuth())
 	{
 		api.GET("/me", handler.Me)
+
+		// 这里是会话列表相关接口
 		api.GET("conversations", handler.GetConversationList)
 		api.POST("conversations/c2c", handler.GetOrCreateC2C)
 		api.GET("conversations/:id/messages", handler.GetHistoryMessage)
+
+		// 这里是好友列表相关接口
+		api.GET("friends", handler.ListFriendsHandler)
+		api.POST("friends/apply", handler.ApplyFriendshipHandler)
+		api.GET("friends/applies", handler.ListFriendAppliesHandler)
+		api.POST("friends/applies/:id/accept", handler.AcceptFriendApplyHandler)
+		api.POST("friends/applies/:id/reject", handler.RejectFriendApplyHandler)
 	}
 }
