@@ -1,4 +1,4 @@
-package service
+package conversation
 
 import (
 	"BlahajChatServer/internal/dao"

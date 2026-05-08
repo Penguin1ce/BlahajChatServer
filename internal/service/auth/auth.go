@@ -1,4 +1,4 @@
-package service
+package auth
 
 import (
 	redis2 "BlahajChatServer/internal/redis"
@@ -45,7 +45,7 @@ func Refresh(ctx context.Context, refreshToken string) (*TokenPair, error) {
 	// 轮换：删旧发新
 	redis2.RDB.Del(ctx, refreshKey(refreshToken))
 	redis2.RDB.SRem(ctx, userSessionKey(uid), refreshToken)
-	return issueTokenPair(ctx, uid)
+	return IssueTokenPair(ctx, uid)
 }
 
 func Logout(ctx context.Context, userID uint64, refreshToken, accessJTI string, accessExp time.Time) error {
@@ -89,7 +89,7 @@ func IsAccessBlacklisted(ctx context.Context, jti string) bool {
 	return n > 0
 }
 
-func issueTokenPair(ctx context.Context, userID uint64) (*TokenPair, error) {
+func IssueTokenPair(ctx context.Context, userID uint64) (*TokenPair, error) {
 	access, _, err := GenerateAccessToken(userID)
 	if err != nil {
 		return nil, err

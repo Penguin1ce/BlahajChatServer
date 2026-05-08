@@ -8,7 +8,7 @@ import (
 	"BlahajChatServer/internal/dto/requests"
 	"BlahajChatServer/internal/dto/response"
 	"BlahajChatServer/internal/model"
-	"BlahajChatServer/internal/service"
+	"BlahajChatServer/internal/service/auth"
 	"BlahajChatServer/pkg/consts"
 
 	"github.com/gin-gonic/gin"
@@ -25,7 +25,7 @@ func toUserResp(u *model.User) response.UserResp {
 	}
 }
 
-func toTokenPairResp(tp *service.TokenPair) response.TokenPairResp {
+func toTokenPairResp(tp *auth.TokenPair) response.TokenPairResp {
 	return response.TokenPairResp{
 		AccessToken:  tp.AccessToken,
 		RefreshToken: tp.RefreshToken,
@@ -39,7 +39,7 @@ func Refresh(c *gin.Context) {
 		response.Fail(c, http.StatusBadRequest, err.Error())
 		return
 	}
-	tp, err := service.Refresh(c.Request.Context(), req.RefreshToken)
+	tp, err := auth.Refresh(c.Request.Context(), req.RefreshToken)
 	if err != nil {
 		response.Fail(c, http.StatusUnauthorized, err.Error())
 		return
@@ -58,7 +58,7 @@ func Logout(c *gin.Context) {
 	var req requests.LogoutReq
 	_ = c.ShouldBindJSON(&req)
 
-	_ = service.Logout(c.Request.Context(), userID, req.RefreshToken, accessJTI, accessExp)
+	_ = auth.Logout(c.Request.Context(), userID, req.RefreshToken, accessJTI, accessExp)
 	response.OK(c, response.LogoutResp{OK: true})
 }
 

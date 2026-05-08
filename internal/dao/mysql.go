@@ -25,6 +25,9 @@ func InitMySQL() {
 
 	if err := db.AutoMigrate(
 		&model.User{},
+		&model.Friendship{},
+		&model.FriendApply{},
+		&model.Block{},
 		&model.Conversation{},
 		&model.UserConv{},
 		&model.Message{},

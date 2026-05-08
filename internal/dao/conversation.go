@@ -88,7 +88,7 @@ func GetOrCreateC2C(ctx context.Context, uidA, uidB uint64) (*model.Conversation
 }
 
 // UpdateLastMsg 把会话的最后一条消息 ID 和时间刷成新的，当前逻辑是只允许更新的更新
-// 由 service.HandleSend 在落库 messages 后调用。
+// 由 chat.HandleSend 在落库 messages 后调用。
 func UpdateLastMsg(ctx context.Context, convID, msgID string, ts time.Time) error {
 	return UpdateLastMsgTx(ctx, nil, convID, msgID, ts)
 }

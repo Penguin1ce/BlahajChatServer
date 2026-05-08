@@ -4,7 +4,7 @@ import (
 	"BlahajChatServer/pkg/consts"
 	"strings"
 
-	"BlahajChatServer/internal/service"
+	"BlahajChatServer/internal/service/auth"
 
 	"github.com/gin-gonic/gin"
 )
@@ -17,12 +17,12 @@ func JWTAuth() gin.HandlerFunc {
 			c.AbortWithStatusJSON(401, gin.H{"error": "缺少 token"})
 			return
 		}
-		claims, err := service.ParseAccessToken(tokenStr)
+		claims, err := auth.ParseAccessToken(tokenStr)
 		if err != nil {
 			c.AbortWithStatusJSON(401, gin.H{"error": "token 无效: " + err.Error()})
 			return
 		}
-		if service.IsAccessBlacklisted(c.Request.Context(), claims.ID) {
+		if auth.IsAccessBlacklisted(c.Request.Context(), claims.ID) {
 			c.AbortWithStatusJSON(401, gin.H{"error": "token 已失效"})
 			return
 		}

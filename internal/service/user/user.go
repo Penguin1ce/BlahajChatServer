@@ -1,9 +1,10 @@
-package service
+package user
 
 import (
 	"BlahajChatServer/internal/dao"
 	"BlahajChatServer/internal/dto/requests"
 	"BlahajChatServer/internal/model"
+	"BlahajChatServer/internal/service/auth"
 	"BlahajChatServer/pkg/consts"
 	"BlahajChatServer/pkg/errs"
 	"context"
@@ -37,7 +38,7 @@ func Register(ctx context.Context, req requests.RegisterReq) (*model.User, error
 	return user, nil
 }
 
-func Login(ctx context.Context, email, password string) (*model.User, *TokenPair, error) {
+func Login(ctx context.Context, email, password string) (*model.User, *auth.TokenPair, error) {
 	user, err := dao.GetUserByEmailWithCtx(ctx, email)
 	if err != nil {
 		return nil, nil, err
@@ -49,7 +50,7 @@ func Login(ctx context.Context, email, password string) (*model.User, *TokenPair
 		return nil, nil, errs.ErrInvalidCredentials
 	}
 	// 生成TOKEN对
-	tp, err := issueTokenPair(ctx, user.ID)
+	tp, err := auth.IssueTokenPair(ctx, user.ID)
 	if err != nil {
 		return nil, nil, err
 	}

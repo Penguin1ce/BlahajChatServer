@@ -4,7 +4,8 @@ import (
 	"BlahajChatServer/internal/dto/requests"
 	"BlahajChatServer/internal/dto/response"
 	"BlahajChatServer/internal/redis"
-	"BlahajChatServer/internal/service"
+	emailservice "BlahajChatServer/internal/service/email"
+	"BlahajChatServer/internal/service/user"
 	"BlahajChatServer/pkg/consts"
 	"BlahajChatServer/pkg/errs"
 	"errors"
@@ -20,7 +21,7 @@ func GetEmailCode(c *gin.Context) {
 		response.Fail(c, http.StatusBadRequest, err.Error())
 		return
 	}
-	if err := service.SendEmailCode(c.Request.Context(), req.Email); err != nil {
+	if err := emailservice.SendEmailCode(c.Request.Context(), req.Email); err != nil {
 		switch {
 		case errors.Is(err, errs.ErrEmailCodeBusy):
 			response.Fail(c, http.StatusTooManyRequests, consts.SystemEmailBusy)
@@ -55,7 +56,7 @@ func Register(c *gin.Context) {
 		response.Fail(c, http.StatusBadRequest, consts.EmailCodeErr)
 		return
 	}
-	u, err := service.Register(c.Request.Context(), req)
+	u, err := user.Register(c.Request.Context(), req)
 	if err != nil {
 		if errors.Is(err, errs.ErrEmailTaken) {
 			response.Fail(c, http.StatusConflict, err.Error())
@@ -75,7 +76,7 @@ func Login(c *gin.Context) {
 		response.Fail(c, http.StatusBadRequest, err.Error())
 		return
 	}
-	u, tokenPair, err := service.Login(c.Request.Context(), req.Email, req.Password)
+	u, tokenPair, err := user.Login(c.Request.Context(), req.Email, req.Password)
 	if err != nil {
 		if errors.Is(err, errs.ErrInvalidCredentials) {
 			response.Fail(c, http.StatusUnauthorized, errs.ErrInvalidCredentials.Error())

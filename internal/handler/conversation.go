@@ -8,7 +8,7 @@ import (
 	"BlahajChatServer/internal/dto/requests"
 	"BlahajChatServer/internal/dto/response"
 	"BlahajChatServer/internal/model"
-	"BlahajChatServer/internal/service"
+	"BlahajChatServer/internal/service/conversation"
 	"BlahajChatServer/pkg/consts"
 	"BlahajChatServer/pkg/errs"
 
@@ -29,7 +29,7 @@ func GetOrCreateC2C(c *gin.Context) {
 		return
 	}
 
-	conversation, err := service.GetOrCreateC2C(c.Request.Context(), userID, req.PeerUID)
+	conversationInfo, err := conversation.GetOrCreateC2C(c.Request.Context(), userID, req.PeerUID)
 	if err != nil {
 		if errors.Is(err, errs.ErrFoundC2CPair) {
 			response.Fail(c, http.StatusBadRequest, err.Error())
@@ -39,7 +39,7 @@ func GetOrCreateC2C(c *gin.Context) {
 		return
 	}
 
-	response.OK(c, toConversationResp(conversation))
+	response.OK(c, toConversationResp(conversationInfo))
 }
 
 func toConversationResp(conv *model.Conversation) response.Conversation {
@@ -83,7 +83,7 @@ func GetHistoryMessage(c *gin.Context) {
 		return
 	}
 
-	msgs, err := service.GetHistoryMessageByID(c.Request.Context(), userID, convID, beforeID, limit)
+	msgs, err := conversation.GetHistoryMessageByID(c.Request.Context(), userID, convID, beforeID, limit)
 	if err != nil {
 		if errors.Is(err, errs.ErrNotMember) {
 			response.Fail(c, http.StatusForbidden, err.Error())
@@ -104,7 +104,7 @@ func GetConversationList(c *gin.Context) {
 		return
 	}
 	// 进入service获取uid的ConversationList
-	conversations, err := service.GetConversationListByID(c.Request.Context(), userID)
+	conversations, err := conversation.GetConversationListByID(c.Request.Context(), userID)
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, err.Error())
 		return
