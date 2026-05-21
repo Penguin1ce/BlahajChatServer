@@ -24,4 +24,7 @@ var (
 	ErrFriendApplyNotFound = errors.New("好友申请不存在")
 	ErrFriendApplyHandled  = errors.New("好友申请已处理")
 	ErrNoPermission        = errors.New("没有操作权限")
+	ErrInvalidGroup        = errors.New("群聊参数错误")
+	ErrGroupMemberNotFound = errors.New("群成员用户不存在")
+	ErrGroupOwnerLeave     = errors.New("群主不能直接退出群聊")
 )

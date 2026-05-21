@@ -263,6 +263,99 @@ POST /api/conversations/c2c
 
 成功后返回会话基础信息，`conv_id` 后续用于发消息、拉历史和拉会话列表展示。
 
+### 创建群聊
+
+```
+POST /api/conversations/group
+```
+
+创建群聊时，服务端会自动把当前登录用户加入成员列表并设置为群主。`member_uids` 里只需要传其它初始成员 uid。
+
+**请求体**
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `name` | string | 是 | 群名称，最长 64 字 |
+| `avatar` | string | 否 | 群头像 URL |
+| `member_uids` | number[] | 是 | 初始成员 uid 列表，不需要包含自己 |
+
+```json
+{
+    "name": "测试群",
+    "member_uids": [2, 3]
+}
+```
+
+服务端会在同一个 MySQL 事务里写入：
+
+1. `conversations`：`type = "group"`，保存群公共信息。
+2. `group_info`：保存群主、成员 JSON 和成员数。
+3. `conversation_state`：为每个群成员创建个人会话状态。
+
+成功后返回会话基础信息。后续群聊发消息仍走同一套 WebSocket `send`，成员 fanout 会从 `group_info.members` 读取。
+
+### 群成员列表
+
+```
+GET /api/conversations/:id/members
+```
+
+只有群成员可以查看。成功后返回成员用户信息和是否群主：
+
+```json
+{
+    "code": 200,
+    "message": "success",
+    "data": {
+        "items": [
+            {
+                "uid": 1,
+                "email": "owner@icloud.com",
+                "nickname": "群主",
+                "avatar_url": "https://images.cdn.org/img/index/sticker.webp",
+                "owner": true
+            }
+        ]
+    }
+}
+```
+
+### 邀请群成员
+
+```
+PUT /api/conversations/:id/members
+```
+
+当前最小版本只允许群主邀请成员。服务端会锁定该群的 `group_info` 行，在同一个事务里更新 `members/member_count` 并补齐新成员的 `conversation_state`。
+
+```json
+{
+    "member_uids": [4, 5]
+}
+```
+
+成功后返回更新后的群成员列表。重复传已有成员不会报错，只会保持幂等。
+
+### 退出群聊
+
+```
+DELETE /api/conversations/:id/members/me
+```
+
+普通成员退出时，服务端会在同一个事务里从 `group_info.members` 移除当前用户，并删除自己的 `conversation_state`。当前版本不支持群主直接退出，需要后续先实现转让群主或解散群。
+
+**成功响应 `200`**
+
+```json
+{
+    "code": 200,
+    "message": "success",
+    "data": {
+        "ok": true
+    }
+}
+```
+
 ### 拉取当前用户会话列表
 
 ```
@@ -298,6 +391,15 @@ GET /api/conversations
 ```
 
 > 这里的 `unread` 是当前登录用户视角下的未读数；同一个会话里，不同用户看到的 `unread`、`pinned`、`muted` 可以不同。
+
+### 会话接口错误码
+
+| HTTP 状态码 | 说明 |
+| --- | --- |
+| `400` | 参数错误，例如群名称为空、成员列表为空、C2C uid 不合法 |
+| `403` | 不是会话成员、没有群主权限，或群主直接退出群聊 |
+| `404` | 会话不存在，或群成员 uid 不存在 |
+| `500` | 系统错误 |
 
 ### 拉取历史消息
 
@@ -657,7 +759,7 @@ GET /debug/ws-tester
 - 一键调用 `/auth/login` 拿 token
 - 一键 Upgrade `/ws/wslogin`
 - 模板化发送 `send` 帧 / `ping` 帧 / 已读上报 / 任意原始 Frame
-- 一键创建或选择 C2C 会话、拉历史消息、重复上一帧
+- 一键创建或选择 C2C / 群聊会话、拉群成员、邀请成员、退出群聊、拉历史消息、重复上一帧
 - 收发日志面板
 
 直接浏览器访问 `http://localhost:8080/debug/ws-tester` 即可使用。

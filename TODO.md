@@ -17,7 +17,7 @@
 
 - [ ] 本地消息能写入 Kafka 并由 consumer 扇出
 - [x] `go build ./...`
-- [x] `go test ./...`
+- [ ] 定向单元测试（禁止执行 `go test ./...`）
 - [ ] `docker compose up -d --build`
 
 ### 已知边界
@@ -36,18 +36,28 @@
 - [x] 复用 `dao.UpdateLastRead(uid, convID, msgID)`
 - [x] 读到消息后清空当前用户该会话 `unread`
 - [ ] 可选：广播 `OpNotify` 给会话其他在线端
-- [ ] ws_tester 增加已读上报按钮
+- [x] ws_tester 增加已读上报按钮
 
 ### 2. 会话列表接口
 
-- [ ] 新增 `GET /api/conversations`
-- [ ] 返回当前用户加入的会话列表
-- [ ] 包含会话基础信息：`conv_id`、`type`、`name`、`avatar`、`last_msg_id`、`last_msg_at`
-- [ ] 包含个人状态：`unread`、`pinned`、`muted`、`last_read_msg_id`
-- [ ] 按 `pinned DESC, last_msg_at DESC` 排序
+- [x] 新增 `GET /api/conversations`
+- [x] 返回当前用户加入的会话列表
+- [x] 包含会话基础信息：`conv_id`、`type`、`name`、`avatar`、`last_msg_id`、`last_msg_at`
+- [x] 包含个人状态：`unread`、`pinned`、`muted`、`last_read_msg_id`
+- [x] 按 `pinned DESC, last_msg_at DESC` 排序
 - [ ] ws_tester 增加拉会话列表按钮
 
-### 3. 端到端验证清单
+### 3. 群聊最小闭环
+
+- [x] 新增 `POST /api/conversations/group`
+- [x] 创建群聊时写入 `conversations`、`group_info`、`conversation_state`
+- [x] 新增 `GET /api/conversations/:id/members`
+- [x] 新增 `PUT /api/conversations/:id/members`
+- [x] 新增 `DELETE /api/conversations/:id/members/me`
+- [x] ws_tester 增加创建群、拉群成员、邀请成员、退出群聊按钮
+- [ ] 用 A/B/C 三个账号验证群聊发送和 Kafka fanout
+
+### 4. 端到端验证清单
 
 - [ ] A/B 两个账号登录
 - [ ] A 创建或获取和 B 的 C2C 会话
@@ -57,7 +67,7 @@
 - [ ] A 的另一个页面也能收到 `msg`
 - [ ] 重发同一个 `client_msg_id` 不重复落库
 - [ ] `GET /api/conversations/:id/messages` 能拉到历史消息
-- [x] 已读上报后 `user_conv.unread` 清零
+- [x] 已读上报后 `conversation_state.unread` 清零
 
 ## P1：简历加分项
 

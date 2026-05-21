@@ -42,6 +42,10 @@ func GetConvsByIDs(ctx context.Context, convIDs []string) (map[string]model.Conv
 	return convByID, nil
 }
 
+func CreateConversationTx(ctx context.Context, tx *gorm.DB, conv *model.Conversation) error {
+	return useDB(ctx, tx).Create(conv).Error
+}
+
 func GetOrCreateC2C(ctx context.Context, uidA, uidB uint64) (*model.Conversation, error) {
 	// 1. 非事务场景直接委托给事务版本；tx=nil 时内部会自己开启事务。
 	return GetOrCreateC2CTx(ctx, nil, uidA, uidB)

@@ -44,3 +44,15 @@ type ConversationListResp struct {
 	Pinned        bool   `json:"pinned"`
 	Muted         bool   `json:"muted"`
 }
+
+type GroupMemberResp struct {
+	UID       uint64 `json:"uid"`
+	Email     string `json:"email"`
+	Nickname  string `json:"nickname"`
+	AvatarURL string `json:"avatar_url"`
+	Owner     bool   `json:"owner"`
+}
+
+type GroupMemberListResp struct {
+	Items []GroupMemberResp `json:"items"`
+}

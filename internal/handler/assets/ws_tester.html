@@ -456,7 +456,13 @@
         <section class="panel">
           <div class="panel-head">
             <h2><span class="step">2</span>创建或选择会话</h2>
-            <button id="createC2CBtn">创建/获取 C2C</button>
+            <div class="actions">
+              <button id="createC2CBtn">创建/获取 C2C</button>
+              <button class="secondary" id="createGroupBtn">创建群聊</button>
+              <button class="secondary" id="listMembersBtn">拉群成员</button>
+              <button class="secondary" id="addMembersBtn">邀请成员</button>
+              <button class="danger" id="leaveGroupBtn">退出群聊</button>
+            </div>
           </div>
           <div class="panel-body">
             <div class="fields">
@@ -467,6 +473,16 @@
               <label>
                 Conv ID
                 <input id="convID" placeholder="创建单聊后自动填入，也可手动粘贴" />
+              </label>
+            </div>
+            <div class="fields">
+              <label>
+                群名称
+                <input id="groupName" placeholder="测试群" />
+              </label>
+              <label>
+                成员 UID
+                <input id="groupMemberUIDs" placeholder="2,3,4" />
               </label>
             </div>
           </div>
@@ -605,6 +621,8 @@
         autoConnect: document.getElementById("autoConnect"),
         peerUID: document.getElementById("peerUID"),
         convID: document.getElementById("convID"),
+        groupName: document.getElementById("groupName"),
+        groupMemberUIDs: document.getElementById("groupMemberUIDs"),
         beforeID: document.getElementById("beforeID"),
         historyLimit: document.getElementById("historyLimit"),
         msgType: document.getElementById("msgType"),
@@ -678,6 +696,8 @@
           autoConnect: el.autoConnect.checked,
           peerUID: el.peerUID.value,
           convID: el.convID.value,
+          groupName: el.groupName.value,
+          groupMemberUIDs: el.groupMemberUIDs.value,
           beforeID: el.beforeID.value,
           historyLimit: el.historyLimit.value,
           msgType: el.msgType.value,
@@ -702,6 +722,8 @@
         el.autoConnect.checked = saved.autoConnect !== false;
         el.peerUID.value = saved.peerUID || "";
         el.convID.value = saved.convID || "";
+        el.groupName.value = saved.groupName || "";
+        el.groupMemberUIDs.value = saved.groupMemberUIDs || "";
         el.beforeID.value = saved.beforeID || "";
         el.historyLimit.value = saved.historyLimit || "20";
         el.msgType.value = saved.msgType || "text";
@@ -810,6 +832,63 @@
         state.nextBeforeID = 0;
         persist();
         log("会话已选择", conv, "ok");
+      }
+
+      function uidListFromInput() {
+        const raw = el.groupMemberUIDs.value.trim();
+        if (!raw) {
+          throw new Error("成员 UID 不能为空");
+        }
+        const ids = raw
+          .split(/[,\s]+/)
+          .map((item) => Number(item.trim()))
+          .filter((uid) => uid > 0);
+        if (!ids.length) {
+          throw new Error("成员 UID 格式不正确");
+        }
+        return Array.from(new Set(ids));
+      }
+
+      async function createGroup() {
+        const name = el.groupName.value.trim();
+        if (!name) {
+          throw new Error("群名称不能为空");
+        }
+        const data = await api("/api/conversations/group", {
+          method: "POST",
+          body: {
+            name,
+            member_uids: uidListFromInput(),
+          },
+        });
+        const conv = data.data;
+        if (!conv || !conv.conv_id) {
+          throw new Error("响应中没有 conv_id");
+        }
+        el.convID.value = conv.conv_id;
+        state.nextBeforeID = 0;
+        persist();
+        log("群聊已选择", conv, "ok");
+      }
+
+      async function listMembers() {
+        const data = await api(`/api/conversations/${encodeURIComponent(convID())}/members`);
+        log("群成员", data.data || {}, "ok");
+      }
+
+      async function addMembers() {
+        const data = await api(`/api/conversations/${encodeURIComponent(convID())}/members`, {
+          method: "PUT",
+          body: { member_uids: uidListFromInput() },
+        });
+        log("成员已更新", data.data || {}, "ok");
+      }
+
+      async function leaveGroup() {
+        const data = await api(`/api/conversations/${encodeURIComponent(convID())}/members/me`, {
+          method: "DELETE",
+        });
+        log("已退出群聊", data.data || {}, "ok");
       }
 
       function convID() {
@@ -1130,6 +1209,10 @@
       bind("meBtn", "click", fetchMe);
       bind("clearAuthBtn", "click", clearToken);
       bind("createC2CBtn", "click", createC2C);
+      bind("createGroupBtn", "click", createGroup);
+      bind("listMembersBtn", "click", listMembers);
+      bind("addMembersBtn", "click", addMembers);
+      bind("leaveGroupBtn", "click", leaveGroup);
       bind("loadHistoryBtn", "click", () => loadHistory(false));
       bind("loadOlderBtn", "click", () => loadHistory(true));
       bind("markReadBtn", "click", markRead);
@@ -1160,6 +1243,8 @@
         el.autoConnect,
         el.peerUID,
         el.convID,
+        el.groupName,
+        el.groupMemberUIDs,
         el.beforeID,
         el.historyLimit,
         el.msgType,

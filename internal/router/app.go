@@ -50,6 +50,10 @@ func Init() {
 		// 这里是会话列表相关接口
 		api.GET("conversations", handler.GetConversationList)
 		api.POST("conversations/c2c", handler.GetOrCreateC2C)
+		api.POST("conversations/group", handler.CreateGroupConversation)
+		api.GET("conversations/:id/members", handler.ListGroupMembers)
+		api.PUT("conversations/:id/members", handler.AddGroupMembers)
+		api.DELETE("conversations/:id/members/me", handler.LeaveGroup)
 		api.GET("conversations/:id/messages", handler.GetHistoryMessage)
 
 		// 这里是好友列表相关接口

@@ -42,6 +42,92 @@ func GetOrCreateC2C(c *gin.Context) {
 	response.OK(c, toConversationResp(conversationInfo))
 }
 
+func CreateGroupConversation(c *gin.Context) {
+	userID, ok := currentUserID(c)
+	if !ok {
+		response.Fail(c, http.StatusUnauthorized, consts.UserNotLogin)
+		return
+	}
+
+	var req requests.CreateGroupReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Fail(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	conv, err := conversation.CreateGroup(c.Request.Context(), userID, req)
+	if err != nil {
+		failGroupError(c, err)
+		return
+	}
+	response.OK(c, toConversationResp(conv))
+}
+
+func ListGroupMembers(c *gin.Context) {
+	userID, ok := currentUserID(c)
+	if !ok {
+		response.Fail(c, http.StatusUnauthorized, consts.UserNotLogin)
+		return
+	}
+	convID := c.Param("id")
+	if convID == "" {
+		response.Fail(c, http.StatusBadRequest, consts.LackConversionID)
+		return
+	}
+
+	members, err := conversation.ListGroupMembers(c.Request.Context(), userID, convID)
+	if err != nil {
+		failGroupError(c, err)
+		return
+	}
+	response.OK(c, members)
+}
+
+func AddGroupMembers(c *gin.Context) {
+	userID, ok := currentUserID(c)
+	if !ok {
+		response.Fail(c, http.StatusUnauthorized, consts.UserNotLogin)
+		return
+	}
+	convID := c.Param("id")
+	if convID == "" {
+		response.Fail(c, http.StatusBadRequest, consts.LackConversionID)
+		return
+	}
+
+	var req requests.AddGroupMembersReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Fail(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	members, err := conversation.AddGroupMembers(c.Request.Context(), userID, convID, req)
+	if err != nil {
+		failGroupError(c, err)
+		return
+	}
+	response.OK(c, members)
+}
+
+func LeaveGroup(c *gin.Context) {
+	userID, ok := currentUserID(c)
+	if !ok {
+		response.Fail(c, http.StatusUnauthorized, consts.UserNotLogin)
+		return
+	}
+	convID := c.Param("id")
+	if convID == "" {
+		response.Fail(c, http.StatusBadRequest, consts.LackConversionID)
+		return
+	}
+
+	if err := conversation.LeaveGroup(c.Request.Context(), userID, convID); err != nil {
+		failGroupError(c, err)
+		return
+	}
+	response.OK(c, gin.H{"ok": true})
+}
+
 func toConversationResp(conv *model.Conversation) response.Conversation {
 	resp := response.Conversation{
 		ConvID:    conv.ConvId,
@@ -127,4 +213,19 @@ func parseIntQuery(c *gin.Context, key string, defaultValue int) (int, error) {
 		return defaultValue, nil
 	}
 	return strconv.Atoi(raw)
+}
+
+func failGroupError(c *gin.Context, err error) {
+	switch {
+	case errors.Is(err, errs.ErrInvalidGroup):
+		response.Fail(c, http.StatusBadRequest, err.Error())
+	case errors.Is(err, errs.ErrGroupMemberNotFound):
+		response.Fail(c, http.StatusNotFound, err.Error())
+	case errors.Is(err, errs.ErrConvNotFound):
+		response.Fail(c, http.StatusNotFound, err.Error())
+	case errors.Is(err, errs.ErrNotMember), errors.Is(err, errs.ErrNoPermission), errors.Is(err, errs.ErrGroupOwnerLeave):
+		response.Fail(c, http.StatusForbidden, err.Error())
+	default:
+		response.Fail(c, http.StatusInternalServerError, err.Error())
+	}
 }
