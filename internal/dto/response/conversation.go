@@ -56,3 +56,15 @@ type GroupMemberResp struct {
 type GroupMemberListResp struct {
 	Items []GroupMemberResp `json:"items"`
 }
+
+type GroupSearchResp struct {
+	ConvID      string `json:"conv_id"`
+	Name        string `json:"name"`
+	Avatar      string `json:"avatar"`
+	OwnerID     uint64 `json:"owner_id"`
+	MemberCount uint32 `json:"member_count"`
+}
+
+type GroupSearchListResp struct {
+	Items []GroupSearchResp `json:"items"`
+}

@@ -46,6 +46,8 @@ func Init() {
 	api := GE.Group("/api", middleware.JWTAuth())
 	{
 		api.GET("/me", handler.Me)
+		api.GET("search/users", handler.SearchUsers)
+		api.GET("search/groups", handler.SearchGroups)
 
 		// 这里是会话列表相关接口
 		api.GET("conversations", handler.GetConversationList)

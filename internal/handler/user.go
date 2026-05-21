@@ -66,7 +66,7 @@ func Register(c *gin.Context) {
 		return
 	}
 	redis.DelValueByKey(key)
-	response.OK(c, toUserResp(u))
+	response.OK(c, response.RegisterResp{User: toUserResp(u)})
 }
 
 // Login 用户的普通登录接口

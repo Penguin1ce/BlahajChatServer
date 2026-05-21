@@ -2,6 +2,7 @@ package conversation
 
 import (
 	"encoding/json"
+	"strings"
 
 	"BlahajChatServer/internal/dao"
 	"BlahajChatServer/internal/dto/response"
@@ -12,6 +13,26 @@ import (
 
 func GetOrCreateC2C(ctx context.Context, uidA, uidB uint64) (*model.Conversation, error) {
 	return dao.GetOrCreateC2C(ctx, uidA, uidB)
+}
+
+func SearchGroups(ctx context.Context, keyword string, limit int) (*response.GroupSearchListResp, error) {
+	keyword = strings.TrimSpace(keyword)
+	groups, err := dao.SearchGroups(ctx, keyword, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]response.GroupSearchResp, 0, len(groups))
+	for _, group := range groups {
+		items = append(items, response.GroupSearchResp{
+			ConvID:      group.ConvID,
+			Name:        group.Name,
+			Avatar:      group.Avatar,
+			OwnerID:     group.OwnerID,
+			MemberCount: group.MemberCount,
+		})
+	}
+	return &response.GroupSearchListResp{Items: items}, nil
 }
 
 func GetHistoryMessageByID(ctx context.Context, uid uint64, convID string, beforeID uint64, limit int) (*response.MessageListResp, error) {

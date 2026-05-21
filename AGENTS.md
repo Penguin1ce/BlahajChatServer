@@ -59,5 +59,6 @@ JWT 的 Secret、TTL、Redis 连接信息全部来自 `config.CFG`，改动时�
 
 - `config/config.toml` 不入库（`.gitignore` 已覆盖），只维护 `config.example.toml`
 - `dao.InitMySQL` 会对 `model.User` 执行 `AutoMigrate`，新增模型需在这里注册
+- 每次新增、删除或修改 HTTP / WebSocket 接口时，必须同步补充或更新本 `AGENTS.md` 中的接口、业务逻辑或对接约定说明，确保后续 Codex 能基于最新接口上下文继续工作
 - 不要执行 `go test ./...`；需要测试时只跑相关包或具体用例
 - 回复使用中文（user 偏好）

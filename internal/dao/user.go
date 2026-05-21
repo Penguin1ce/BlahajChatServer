@@ -3,6 +3,7 @@ package dao
 import (
 	"context"
 	"errors"
+	"strconv"
 
 	"BlahajChatServer/internal/model"
 
@@ -80,4 +81,32 @@ func GetUsersByIDs(ctx context.Context, ids []uint64) (map[uint64]model.User, er
 		userByID[user.ID] = user
 	}
 	return userByID, nil
+}
+
+func SearchUsers(ctx context.Context, keyword string, limit int) ([]model.User, error) {
+	if keyword == "" {
+		return []model.User{}, nil
+	}
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 50 {
+		limit = 50
+	}
+
+	like := "%" + keyword + "%"
+	q := DB.WithContext(ctx).
+		Where("email LIKE ? OR nickname LIKE ?", like, like).
+		Order("id DESC").
+		Limit(limit)
+
+	if uid, err := strconv.ParseUint(keyword, 10, 64); err == nil {
+		q = q.Or("id = ?", uid)
+	}
+
+	var users []model.User
+	if err := q.Find(&users).Error; err != nil {
+		return nil, err
+	}
+	return users, nil
 }

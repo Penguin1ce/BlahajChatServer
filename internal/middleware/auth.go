@@ -1,10 +1,12 @@
 package middleware
 
 import (
-	"BlahajChatServer/pkg/consts"
+	"net/http"
 	"strings"
 
+	"BlahajChatServer/internal/dto/response"
 	"BlahajChatServer/internal/service/auth"
+	"BlahajChatServer/pkg/consts"
 
 	"github.com/gin-gonic/gin"
 )
@@ -14,16 +16,16 @@ func JWTAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tokenStr := extractToken(c)
 		if tokenStr == "" {
-			c.AbortWithStatusJSON(401, gin.H{"error": "缺少 token"})
+			response.Abort(c, http.StatusUnauthorized, "缺少 token")
 			return
 		}
 		claims, err := auth.ParseAccessToken(tokenStr)
 		if err != nil {
-			c.AbortWithStatusJSON(401, gin.H{"error": "token 无效: " + err.Error()})
+			response.Abort(c, http.StatusUnauthorized, "token 无效: "+err.Error())
 			return
 		}
 		if auth.IsAccessBlacklisted(c.Request.Context(), claims.ID) {
-			c.AbortWithStatusJSON(401, gin.H{"error": "token 已失效"})
+			response.Abort(c, http.StatusUnauthorized, "token 已失效")
 			return
 		}
 		c.Set(consts.CtxUserID, claims.UserID)

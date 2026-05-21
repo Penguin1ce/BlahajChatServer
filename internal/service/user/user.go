@@ -3,12 +3,14 @@ package user
 import (
 	"BlahajChatServer/internal/dao"
 	"BlahajChatServer/internal/dto/requests"
+	"BlahajChatServer/internal/dto/response"
 	"BlahajChatServer/internal/model"
 	"BlahajChatServer/internal/service/auth"
 	"BlahajChatServer/pkg/consts"
 	"BlahajChatServer/pkg/errs"
 	"context"
 	"errors"
+	"strings"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -55,4 +57,26 @@ func Login(ctx context.Context, email, password string) (*model.User, *auth.Toke
 		return nil, nil, err
 	}
 	return user, tp, nil
+}
+
+func SearchUsers(ctx context.Context, currentUID uint64, keyword string, limit int) (*response.UserSearchListResp, error) {
+	keyword = strings.TrimSpace(keyword)
+	users, err := dao.SearchUsers(ctx, keyword, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]response.UserSearchResp, 0, len(users))
+	for _, u := range users {
+		if u.ID == currentUID {
+			continue
+		}
+		items = append(items, response.UserSearchResp{
+			UID:       u.ID,
+			Email:     u.Email,
+			Nickname:  u.Nickname,
+			AvatarURL: u.AvatarURL,
+		})
+	}
+	return &response.UserSearchListResp{Items: items}, nil
 }

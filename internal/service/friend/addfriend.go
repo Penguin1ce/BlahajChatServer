@@ -14,7 +14,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func ApplyFriend(ctx context.Context, fromUID uint64, req requests.ApplyFriendReq) (*model.FriendApply, error) {
+func ApplyFriend(ctx context.Context, fromUID uint64, req requests.ApplyFriendReq) (*response.FriendApplyResp, error) {
 	// 1. 基础参数校验：不能添加自己，也不能缺少任一方 uid。
 	if fromUID == 0 || req.ToUID == 0 || fromUID == req.ToUID {
 		return nil, errs.ErrCannotFriendSelf
@@ -66,7 +66,8 @@ func ApplyFriend(ctx context.Context, fromUID uint64, req requests.ApplyFriendRe
 	if err := dao.CreateFriendApply(ctx, apply); err != nil {
 		return nil, err
 	}
-	return apply, nil
+	resp := friendApplyToResp(*apply)
+	return &resp, nil
 }
 
 func ListPendingApplies(ctx context.Context, uid uint64) (*response.FriendApplyListResp, error) {

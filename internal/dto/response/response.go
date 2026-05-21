@@ -29,3 +29,11 @@ func Fail(c *gin.Context, status int, msg string) {
 		Data:    nil,
 	})
 }
+
+func Abort(c *gin.Context, status int, msg string) {
+	c.AbortWithStatusJSON(status, R{
+		Code:    status,
+		Message: msg,
+		Data:    nil,
+	})
+}

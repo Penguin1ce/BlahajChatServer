@@ -19,3 +19,14 @@ type RegisterResp struct {
 type MeResp struct {
 	User UserResp `json:"user"`
 }
+
+type UserSearchResp struct {
+	UID       uint64 `json:"uid"`
+	Email     string `json:"email"`
+	Nickname  string `json:"nickname"`
+	AvatarURL string `json:"avatar_url"`
+}
+
+type UserSearchListResp struct {
+	Items []UserSearchResp `json:"items"`
+}
