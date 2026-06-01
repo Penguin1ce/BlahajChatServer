@@ -45,6 +45,21 @@ func GetValueByKey(key string) (string, error) {
 	return value, nil
 }
 
+// GetCache 给 cache-aside 旁路缓存用：miss 返回 ok=false 且不打日志
+// （缓存未命中是常态，复用 GetValueByKey 会刷一堆 Warn）。
+func GetCache(key string) (value string, ok bool, err error) {
+	value, err = RDB.Get(ctx, key).Result()
+	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			return "", false, nil
+		}
+		zlog.Error("Redis 读取失败", "key", key, "err", err)
+		return "", false, err
+	}
+	zlog.Debug("缓存命中", "key", key)
+	return value, true, nil
+}
+
 func SetValueByKey(key string, value string) error {
 	if err := RDB.Set(ctx, key, value, 0).Err(); err != nil {
 		zlog.Error("Redis 写入失败", "key", key, "err", err)

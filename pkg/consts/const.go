@@ -11,6 +11,10 @@ const (
 	// redis做幂等的键
 	ClientMessageKey = "clientMessageKey:"
 
+	// cache-aside 缓存 key 前缀
+	GroupMembersKey = "group:members:" // group:members:{convID} -> JSON []uint64
+	UserProfileKey  = "user:profile:"  // user:profile:{uid}     -> JSON model.User（不含密码）
+
 	// 用户的默认信息
 	DefaultAvatarURL = "https://images.cdn.org/img/index/sticker.webp"
 
@@ -19,6 +23,10 @@ const (
 
 	// client_msg_id 幂等 key 的有效期
 	ClientMsgIDIdemTTL = 24 * time.Hour
+
+	// 缓存 TTL：即使写时已删 key，仍靠 TTL 兜底漏删/进程崩溃导致的脏缓存
+	GroupMembersTTL = 10 * time.Minute
+	UserProfileTTL  = 30 * time.Minute
 
 	// 这里是成功信息枚举
 	SystemSendSuccess = "发送成功,请前往邮箱查收"

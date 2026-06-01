@@ -69,14 +69,8 @@ func CreateGroup(ctx context.Context, ownerUID uint64, req requests.CreateGroupR
 }
 
 func ListGroupMembers(ctx context.Context, uid uint64, convID string) (*response.GroupMemberListResp, error) {
-	member, err := dao.IsMember(ctx, uid, convID)
-	if err != nil {
-		return nil, err
-	}
-	if !member {
-		return nil, errs.ErrNotMember
-	}
-
+	// 这里既要成员数组又要 OwnerID，都在 group_info 一行里。
+	// 直接取一次 groupInfo，鉴权也从这份成员数组判断，省掉单独的 IsMember 查询。
 	groupInfo, err := dao.GetGroupInfoByConvID(ctx, convID)
 	if err != nil {
 		return nil, err
@@ -85,6 +79,10 @@ func ListGroupMembers(ctx context.Context, uid uint64, convID string) (*response
 	if err != nil {
 		return nil, err
 	}
+	if !containsUID(members, uid) {
+		return nil, errs.ErrNotMember
+	}
+
 	userByID, err := dao.GetUsersByIDs(ctx, members)
 	if err != nil {
 		return nil, err
@@ -113,6 +111,7 @@ func AddGroupMembers(ctx context.Context, operatorUID uint64, convID string, req
 		return nil, err
 	}
 
+	var added bool
 	err = dao.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		groupInfo, err := dao.GetGroupInfoByConvIDForUpdateTx(ctx, tx, convID)
 		if err != nil {
@@ -128,7 +127,8 @@ func AddGroupMembers(ctx context.Context, operatorUID uint64, convID string, req
 		if err != nil {
 			return err
 		}
-		merged, added := mergeMembers(current, candidates)
+		var merged []uint64
+		merged, added = mergeMembers(current, candidates)
 		if !added {
 			return nil
 		}
@@ -140,11 +140,15 @@ func AddGroupMembers(ctx context.Context, operatorUID uint64, convID string, req
 	if err != nil {
 		return nil, err
 	}
+	// 仅在成员真正变更时失效缓存；事务提交成功后再删（提交前删会被并发读重新灌入旧成员）。
+	if added {
+		dao.InvalidateGroupMembers(convID)
+	}
 	return ListGroupMembers(ctx, operatorUID, convID)
 }
 
 func LeaveGroup(ctx context.Context, uid uint64, convID string) error {
-	return dao.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := dao.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		groupInfo, err := dao.GetGroupInfoByConvIDForUpdateTx(ctx, tx, convID)
 		if err != nil {
 			return err
@@ -165,6 +169,12 @@ func LeaveGroup(ctx context.Context, uid uint64, convID string) error {
 		}
 		return dao.DeleteConversationStateTx(ctx, tx, uid, convID)
 	})
+	if err != nil {
+		return err
+	}
+	// 事务提交成功后再删缓存。
+	dao.InvalidateGroupMembers(convID)
+	return nil
 }
 
 func normalizeGroupMembers(ownerUID uint64, input []uint64, requireOther bool) ([]uint64, error) {
@@ -246,6 +256,15 @@ func mergeMembers(current, candidates []uint64) ([]uint64, bool) {
 	}
 	sort.Slice(merged, func(i, j int) bool { return merged[i] < merged[j] })
 	return merged, added
+}
+
+func containsUID(members []uint64, uid uint64) bool {
+	for _, memberUID := range members {
+		if memberUID == uid {
+			return true
+		}
+	}
+	return false
 }
 
 func removeMember(current []uint64, uid uint64) ([]uint64, bool) {

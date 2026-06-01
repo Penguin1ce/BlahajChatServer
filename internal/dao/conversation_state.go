@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"BlahajChatServer/internal/model"
+	"BlahajChatServer/internal/redis"
+	"BlahajChatServer/pkg/consts"
 	"BlahajChatServer/pkg/errs"
 
 	"gorm.io/gorm"
@@ -77,18 +79,42 @@ func parseC2CMembers(conv *model.Conversation) ([]uint64, error) {
 }
 
 func ListGroupMembers(ctx context.Context, convID string) ([]uint64, error) {
-	// 1. 群聊成员事实源是 group_info.members。
+	// 1. 先查缓存（发消息/扇出每次都走这里，是最热的读路径）。
+	if cached, ok, _ := redis.GetCache(groupMembersKey(convID)); ok {
+		var members []uint64
+		if json.Unmarshal([]byte(cached), &members) == nil {
+			return members, nil
+		}
+	}
+
+	// 2. 未命中查 DB，群聊成员事实源是 group_info.members。
+	//    ErrConvNotFound 等错误直接透出，不回写缓存（避免缓存穿透写空值）。
 	groupInfo, err := GetGroupInfoByConvID(ctx, convID)
 	if err != nil {
 		return nil, err
 	}
 
-	// 2. members 存 JSON uid 数组，这里反序列化成 []uint64 供 fanout 使用。
+	// 3. members 存 JSON uid 数组，这里反序列化成 []uint64 供 fanout 使用。
 	var members []uint64
 	if err := json.Unmarshal(groupInfo.Members, &members); err != nil {
 		return nil, err
 	}
+
+	// 4. 回写缓存，带 TTL 兜底。
+	if raw, err := json.Marshal(members); err == nil {
+		_ = redis.SetValueByKeyExpire(groupMembersKey(convID), string(raw), consts.GroupMembersTTL)
+	}
 	return members, nil
+}
+
+func groupMembersKey(convID string) string {
+	return consts.GroupMembersKey + convID
+}
+
+// InvalidateGroupMembers 在群成员发生变更（加人/退群/解散等）的事务提交后调用，
+// 删除成员缓存。必须在事务 commit 之后调用，提交前删会被并发读重新灌入旧数据。
+func InvalidateGroupMembers(convID string) {
+	redis.DelValueByKey(groupMembersKey(convID))
 }
 
 func GetGroupInfoByConvID(ctx context.Context, convID string) (*model.GroupInfo, error) {
