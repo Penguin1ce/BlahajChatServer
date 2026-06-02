@@ -3,6 +3,7 @@ package ws
 import (
 	"context"
 	"encoding/json"
+	"runtime/debug"
 	"sync/atomic"
 	"time"
 
@@ -45,8 +46,21 @@ func NewClient(hub *Hub, conn *websocket.Conn, userID uint64) *Client {
 
 // Serve 在 goroutine 里启动读写泵。Upgrade 成功后调用即可。
 func (c *Client) Serve() {
-	go c.writePump()
-	go c.readPump()
+	go c.safeRun("writePump", c.writePump)
+	go c.safeRun("readPump", c.readPump)
+}
+
+// safeRun 包裹读写泵：捕获 panic 防止单条连接把整个进程拖垮（裸 goroutine 的 panic
+// gin 的 Recovery 中间件管不到）。捕获后落日志并兜底注销连接（Unregister 幂等安全）。
+func (c *Client) safeRun(name string, fn func()) {
+	defer func() {
+		if r := recover(); r != nil {
+			zlog.Errorf("WS %s panic uid=%d conn=%s err=%v\n%s",
+				name, c.userID, c.connID, r, debug.Stack())
+			c.hub.Unregister(c)
+		}
+	}()
+	fn()
 }
 
 // close 关闭底层 conn 与 send 通道；多次调用安全。

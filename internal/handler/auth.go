@@ -69,7 +69,7 @@ func Me(c *gin.Context) {
 		response.Fail(c, http.StatusUnauthorized, "未登录")
 		return
 	}
-	u, err := dao.GetUserByID(id)
+	u, err := dao.GetUserByIDWithCtx(c.Request.Context(), id)
 	if err != nil || u == nil {
 		response.Fail(c, http.StatusNotFound, "用户不存在")
 		return
