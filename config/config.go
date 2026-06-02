@@ -21,6 +21,10 @@ type DB struct {
 	User     string `toml:"user"`
 	Password string `toml:"password"`
 	Name     string `toml:"name"`
+	// 连接池参数，留空时由 dao.InitMySQL 用默认值兜底。
+	MaxOpenConns           int `toml:"max_open_conns"`
+	MaxIdleConns           int `toml:"max_idle_conns"`
+	ConnMaxLifetimeMinutes int `toml:"conn_max_lifetime_minutes"`
 }
 
 type Redis struct {

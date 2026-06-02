@@ -8,6 +8,10 @@ port     = 3306
 user     = "root"
 password = "secret"
 name     = "blahaj"
+# 连接池参数，留空/为 0 时用默认值（max_open=50, max_idle=10, lifetime=30min）
+max_open_conns            = 50
+max_idle_conns            = 10
+conn_max_lifetime_minutes = 30
 
 [redis]
 host     = "127.0.0.1"
